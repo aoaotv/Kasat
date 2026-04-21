@@ -5,13 +5,20 @@
 <title>改札シミュ</title>
 <style>
   body {
-    margin: 0;
-    background: black;
-    color: white;
-    font-family: sans-serif;
-    overflow: hidden;
-  }
+  margin: 0;
+  background: black;
+  color: white;
+  font-family: sans-serif;
+  overflow: hidden;
 
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
   #screen {
     position: absolute;
     width: 100%;
