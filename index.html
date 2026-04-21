@@ -23,20 +23,21 @@
   }
 
   #text {
-    font-size: 40px;
-    margin-bottom: 20px;
+    font-size: 60px;
+    text-align: center;
   }
 
   #balance {
-    font-size: 24px;
+    font-size: 30px;
+    margin-top: 20px;
   }
 
   #chargeBtn {
     position: absolute;
     bottom: 20px;
     right: 20px;
-    padding: 10px 20px;
-    font-size: 18px;
+    padding: 15px 25px;
+    font-size: 20px;
   }
 </style>
 </head>
@@ -44,13 +45,13 @@
 
 <div id="screen">
   <div id="text">タッチしてください</div>
-  <div id="balance"></div>
+  <div id="balance" style="display:none;"></div>
 </div>
 
 <button id="chargeBtn">チャージ</button>
 
 <script>
-// Cookie操作
+// Cookie
 function setCookie(name, value) {
   document.cookie = name + "=" + value + ";path=/";
 }
@@ -59,32 +60,43 @@ function getCookie(name) {
   return v ? v[2] : null;
 }
 
-// 初期残高3000
 let balance = parseInt(getCookie("balance")) || 3000;
+let hasEntry = getCookie("hasEntry") === "true";
 
-// 表示更新
+const text = document.getElementById("text");
 const bal = document.getElementById("balance");
-function updateBalance() {
-  bal.innerText = "残高: ¥" + balance;
-}
-updateBalance();
 
-// WebAudio
+// 音（リアル寄り：2音）
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-function okSound() {
-  const o = audioCtx.createOscillator();
-  o.frequency.value = 1000;
-  o.connect(audioCtx.destination);
-  o.start();
-  setTimeout(()=>o.stop(),100);
+function playOK() {
+  const o1 = audioCtx.createOscillator();
+  const o2 = audioCtx.createOscillator();
+  o1.frequency.value = 1200;
+  o2.frequency.value = 1600;
+  o1.connect(audioCtx.destination);
+  o2.connect(audioCtx.destination);
+  o1.start();
+  setTimeout(()=>o1.stop(),80);
+  setTimeout(()=>{
+    o2.start();
+    setTimeout(()=>o2.stop(),80);
+  },100);
 }
-function ngSound() {
-  const o = audioCtx.createOscillator();
-  o.frequency.value = 400;
-  o.connect(audioCtx.destination);
-  o.start();
-  setTimeout(()=>o.stop(),200);
+
+function playNG() {
+  const o1 = audioCtx.createOscillator();
+  const o2 = audioCtx.createOscillator();
+  o1.frequency.value = 400;
+  o2.frequency.value = 300;
+  o1.connect(audioCtx.destination);
+  o2.connect(audioCtx.destination);
+  o1.start();
+  setTimeout(()=>o1.stop(),120);
+  setTimeout(()=>{
+    o2.start();
+    setTimeout(()=>o2.stop(),120);
+  },150);
 }
 
 let busy = false;
@@ -96,64 +108,90 @@ document.body.addEventListener("click", (e) => {
   if (busy) return;
   busy = true;
 
-  const text = document.getElementById("text");
-  const screen = document.getElementById("screen");
-
   const isTop = e.clientY < window.innerHeight / 2;
+  document.getElementById("screen").style.transform =
+    isTop ? "rotate(180deg)" : "rotate(0deg)";
 
-  // 向き
-  if (isTop) {
-    screen.style.transform = "rotate(180deg)";
-  } else {
-    screen.style.transform = "rotate(0deg)";
-  }
-
-  // 入場 / 出場
-  const mode = isTop ? "出場" : "入場";
-
-  // 10%失敗
   const fail = Math.random() < 0.1;
+
+  // タッチした瞬間だけ残高表示
+  bal.style.display = "block";
+  bal.innerText = "残高: ¥" + balance;
 
   if (fail) {
     text.innerText = "タッチしなおしてください";
     document.body.style.background = "darkred";
-    ngSound();
+    playNG();
   } else {
-    if (mode === "入場") {
+    if (!isTop) {
+      // 入場
       if (balance < 160) {
         text.innerText = "残高不足";
         document.body.style.background = "darkred";
-        ngSound();
+        playNG();
       } else {
         balance -= 160;
+        hasEntry = true;
         text.innerText = "入場";
         document.body.style.background = "darkgreen";
-        okSound();
+        playOK();
       }
     } else {
-      text.innerText = "出場";
-      document.body.style.background = "darkgreen";
-      okSound();
+      // 出場
+      if (!hasEntry) {
+        text.innerText = "入場記録なし";
+        document.body.style.background = "darkred";
+        playNG();
+      } else {
+        hasEntry = false;
+        text.innerText = "出場";
+        document.body.style.background = "darkgreen";
+        playOK();
+      }
     }
-
-    setCookie("balance", balance);
-    updateBalance();
   }
+
+  setCookie("balance", balance);
+  setCookie("hasEntry", hasEntry);
 
   setTimeout(() => {
     text.innerText = "タッチしてください";
     document.body.style.background = "black";
+    bal.style.display = "none";
     busy = false;
   }, 1500);
 });
 
-// チャージボタン
+// チャージ（どこからでも押せる）
 document.getElementById("chargeBtn").onclick = () => {
   balance += 1000;
   setCookie("balance", balance);
-  updateBalance();
   alert("1000円チャージ！");
 };
+
+// 長押しで管理者
+let pressTimer;
+const btn = document.getElementById("chargeBtn");
+
+btn.addEventListener("touchstart", () => {
+  pressTimer = setTimeout(() => {
+    const pass = prompt("管理者パスワード");
+    if (pass === "2059") {
+      const newBal = prompt("残高設定");
+      if (newBal !== null) {
+        balance = parseInt(newBal) || 0;
+        setCookie("balance", balance);
+        alert("変更した");
+      }
+    } else {
+      alert("違う");
+    }
+  }, 1500);
+});
+
+btn.addEventListener("touchend", () => {
+  clearTimeout(pressTimer);
+});
 </script>
 
 </body>
