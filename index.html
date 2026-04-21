@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>改札シミュ</title>
+<style>
+  body {
+    margin: 0;
+    background: black;
+    color: white;
+    font-family: sans-serif;
+    overflow: hidden;
+  }
+
+  #screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+
+  #text {
+    font-size: 40px;
+    margin-bottom: 20px;
+  }
+
+  #balance {
+    font-size: 24px;
+  }
+
+  #chargeBtn {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    font-size: 18px;
+  }
+</style>
+</head>
+<body>
+
+<div id="screen">
+  <div id="text">タッチしてください</div>
+  <div id="balance"></div>
+</div>
+
+<button id="chargeBtn">チャージ</button>
+
+<script>
+// Cookie操作
+function setCookie(name, value) {
+  document.cookie = name + "=" + value + ";path=/";
+}
+function getCookie(name) {
+  const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+  return v ? v[2] : null;
+}
+
+// 初期残高3000
+let balance = parseInt(getCookie("balance")) || 3000;
+
+// 表示更新
+const bal = document.getElementById("balance");
+function updateBalance() {
+  bal.innerText = "残高: ¥" + balance;
+}
+updateBalance();
+
+// WebAudio
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function okSound() {
+  const o = audioCtx.createOscillator();
+  o.frequency.value = 1000;
+  o.connect(audioCtx.destination);
+  o.start();
+  setTimeout(()=>o.stop(),100);
+}
+function ngSound() {
+  const o = audioCtx.createOscillator();
+  o.frequency.value = 400;
+  o.connect(audioCtx.destination);
+  o.start();
+  setTimeout(()=>o.stop(),200);
+}
+
+let busy = false;
+
+document.body.addEventListener("click", (e) => {
+  if (e.target.id === "chargeBtn") return;
+
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  if (busy) return;
+  busy = true;
+
+  const text = document.getElementById("text");
+  const screen = document.getElementById("screen");
+
+  const isTop = e.clientY < window.innerHeight / 2;
+
+  // 向き
+  if (isTop) {
+    screen.style.transform = "rotate(180deg)";
+  } else {
+    screen.style.transform = "rotate(0deg)";
+  }
+
+  // 入場 / 出場
+  const mode = isTop ? "出場" : "入場";
+
+  // 10%失敗
+  const fail = Math.random() < 0.1;
+
+  if (fail) {
+    text.innerText = "タッチしなおしてください";
+    document.body.style.background = "darkred";
+    ngSound();
+  } else {
+    if (mode === "入場") {
+      if (balance < 160) {
+        text.innerText = "残高不足";
+        document.body.style.background = "darkred";
+        ngSound();
+      } else {
+        balance -= 160;
+        text.innerText = "入場";
+        document.body.style.background = "darkgreen";
+        okSound();
+      }
+    } else {
+      text.innerText = "出場";
+      document.body.style.background = "darkgreen";
+      okSound();
+    }
+
+    setCookie("balance", balance);
+    updateBalance();
+  }
+
+  setTimeout(() => {
+    text.innerText = "タッチしてください";
+    document.body.style.background = "black";
+    busy = false;
+  }, 1500);
+});
+
+// チャージボタン
+document.getElementById("chargeBtn").onclick = () => {
+  balance += 1000;
+  setCookie("balance", balance);
+  updateBalance();
+  alert("1000円チャージ！");
+};
+</script>
+
+</body>
+</html>
