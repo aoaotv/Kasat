@@ -1,324 +1,773 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>電車UI 音声版</title>
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Train LCD Circle</title>
 <style>
-body {
-  background:#eee;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-  margin:0;
-  font-family:sans-serif;
-}
+  body {
+    margin: 0;
+    background: #f2f2f2;
+    font-family: sans-serif;
+    user-select: none;
+    overflow-x: hidden;
+  }
 
-.display {
-  position:relative;
-  width:90vw;
-  max-width:1000px;
-  aspect-ratio:16/9;
-  background:white;
-  border:3px solid #ff6600;
-  display:flex;
-  flex-direction:column;
-}
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 18px 20px;
+  }
 
-/* 左上 */
-.status {
-  position:absolute;
-  top:10px;
-  left:15px;
-  font-size:18px;
-  font-weight:bold;
-}
+  .badge {
+    background: linear-gradient(#3d73bc, #275aa1);
+    color: white;
+    font-weight: bold;
+    font-size: 20px;
+    border-radius: 10px;
+    padding: 14px 24px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+  }
 
-/* 路線 */
-.line {
-  flex:2;
-  display:flex;
-  justify-content:space-around;
-  align-items:flex-end;
-}
+  .dest {
+    font-size: 28px;
+    font-weight: 700;
+    color: #444;
+  }
 
-/* 駅 */
-.station {
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-}
+  .top-shadow {
+    height: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.18);
+    background: transparent;
+  }
 
-.circle {
-  width:18px;
-  height:18px;
-  border-radius:50%;
-  background:#ccc;
-}
+  .main {
+    display: flex;
+    justify-content: center;
+    align-items: end;
+    gap: 90px;
+    margin-top: 8px;
+    padding: 0 24px;
+  }
 
-.current .circle {
-  background:red;
-  animation:blink 1s infinite;
-}
+  .next-label {
+    font-size: 38px;
+    font-weight: 800;
+    color: #000;
+    align-self: center;
+    min-width: 120px;
+  }
 
-@keyframes blink {50%{opacity:0;}}
+  .station-wrap {
+    text-align: center;
+  }
 
-.name {
-  writing-mode: vertical-rl;
-  font-size:24px;
-}
+  .station-sub {
+    font-size: 34px;
+    font-weight: 700;
+    color: #666;
+    line-height: 1.1;
+    min-height: 42px;
+  }
 
-.time { font-size:14px; }
+  .station-main {
+    font-size: 88px;
+    font-weight: 900;
+    line-height: 1.05;
+    color: #000;
+    min-height: 100px;
+  }
 
-.passed { opacity:0.2; }
+  .status {
+    margin-top: 6px;
+    font-size: 28px;
+    font-weight: 800;
+    color: #333;
+    min-height: 40px;
+  }
 
-/* 下 */
-.bottom {
-  text-align:center;
-  font-size:22px;
-}
+  .timer {
+    margin-top: 4px;
+    font-size: 24px;
+    color: #666;
+    min-height: 32px;
+  }
 
-/* お知らせ */
-.notice {
-  background:black;
-  color:white;
-  font-size:28px;
-  overflow:hidden;
-  white-space:nowrap;
-}
-.notice span {
-  display:inline-block;
-  padding-left:100%;
-  animation:scroll 12s linear infinite;
-}
-@keyframes scroll {
-  100% { transform:translateX(-100%); }
-}
+  .blue-line {
+    height: 6px;
+    background: #1028ff;
+    margin-top: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
 
-/* 設定 */
-.settings-btn {
-  position:fixed;
-  bottom:20px;
-  right:20px;
-  background:#ff6600;
-  color:white;
-  padding:10px;
-  cursor:pointer;
-}
+  .route-area {
+    position: relative;
+    height: 330px;
+    padding: 24px 24px 0;
+  }
 
-.panel {
-  position:fixed;
-  bottom:70px;
-  right:20px;
-  background:white;
-  border:2px solid #333;
-  padding:10px;
-  display:none;
-}
+  .route-scroll {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 20px;
+    height: 220px;
+  }
+
+  .station-label-layer {
+    position: absolute;
+    left: 60px;
+    right: 120px;
+    bottom: 70px;
+    height: 120px;
+  }
+
+  .route-base {
+    position: absolute;
+    left: 68px;
+    right: 110px;
+    bottom: 0;
+    height: 36px;
+    background: linear-gradient(90deg, #162cff 0%, #1d12ff 40%, #1c1cff 100%);
+    box-shadow: 0 3px 8px rgba(0,0,0,.2);
+  }
+
+  .route-base::after {
+    content: "";
+    position: absolute;
+    right: -58px;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 18px solid transparent;
+    border-bottom: 18px solid transparent;
+    border-left: 58px solid #2323ff;
+  }
+
+  .route-head {
+    position: absolute;
+    left: 28px;
+    bottom: 0;
+    width: 48px;
+    height: 36px;
+    background: #ddd;
+    box-shadow: 0 3px 8px rgba(0,0,0,.2);
+  }
+
+  .route-current {
+    position: absolute;
+    left: 66px;
+    bottom: 0;
+    width: 42px;
+    height: 36px;
+    background: linear-gradient(#ff7300, #c53a00);
+    clip-path: polygon(0 0, 72% 0, 100% 50%, 72% 100%, 0 100%, 18% 50%);
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  }
+
+  .route-current.en {
+    background: linear-gradient(#4dbdff, #1b76d1);
+  }
+
+  .station-box {
+    position: absolute;
+    bottom: 8px;
+    width: 24px;
+    height: 24px;
+    background: #f4f4f4;
+    border: 2px solid #ddd;
+    transform: translateX(-50%);
+  }
+
+  .station-box.active {
+    background: #ffb27a;
+    border-color: #ff6d00;
+  }
+
+  .station-name {
+    position: absolute;
+    transform: translateX(-50%);
+    font-weight: 800;
+    color: #222;
+    white-space: nowrap;
+  }
+
+  .station-name.ja {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 30px;
+    line-height: 1;
+    bottom: 48px;
+  }
+
+  .station-name.en {
+    bottom: 76px;
+    font-size: 22px;
+    transform: translateX(-50%) rotate(-60deg);
+    transform-origin: center bottom;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 16px 18px;
+    justify-content: center;
+  }
+
+  button {
+    font-size: 16px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: none;
+    background: #2f62b6;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  button.secondary {
+    background: #666;
+  }
+
+  .hint {
+    text-align: center;
+    color: #555;
+    font-size: 14px;
+    padding-bottom: 10px;
+  }
+
+  .editor {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.35);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    z-index: 1000;
+  }
+
+  .editor.open {
+    display: flex;
+  }
+
+  .panel {
+    width: min(980px, 100%);
+    max-height: 88vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 20px 40px rgba(0,0,0,.25);
+  }
+
+  .panel h2 {
+    margin: 0 0 12px;
+  }
+
+  .editor-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1.2fr .8fr .8fr auto auto auto;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+
+  .editor-row input {
+    font-size: 16px;
+    padding: 10px;
+  }
+
+  .mini-btn {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: none;
+    background: #2f62b6;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .mini-btn.delete {
+    background: #c43b3b;
+  }
+
+  .mini-btn.move {
+    background: #666;
+  }
+
+  .panel-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .tap-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 52px;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.75);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    z-index: 2000;
+    display: none;
+  }
+
+  .notice-wrap {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 40px;
+    background: #111;
+    color: #fff;
+    overflow: hidden;
+    border-top: 3px solid #1028ff;
+    z-index: 900;
+  }
+
+  .notice-track {
+    white-space: nowrap;
+    display: inline-block;
+    padding-left: 100%;
+    animation: marquee 18s linear infinite;
+    line-height: 40px;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+  }
+
+  @media (max-width: 700px) {
+    .main {
+      gap: 36px;
+    }
+    .next-label {
+      font-size: 28px;
+      min-width: 84px;
+    }
+    .station-sub {
+      font-size: 22px;
+    }
+    .station-main {
+      font-size: 60px;
+      min-height: 70px;
+    }
+    .status {
+      font-size: 22px;
+    }
+    .timer {
+      font-size: 18px;
+    }
+    .dest {
+      font-size: 22px;
+    }
+    .badge {
+      font-size: 18px;
+      padding: 12px 18px;
+    }
+    .route-area {
+      height: 300px;
+    }
+    .station-name.ja {
+      font-size: 22px;
+    }
+    .station-name.en {
+      font-size: 16px;
+    }
+    .editor-row {
+      grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    }
+  }
 </style>
 </head>
+<body id="tapArea">
 
-<body>
+  <div class="header">
+    <div class="badge" id="serviceType">環状線</div>
+    <div class="dest" id="destinationText">外回り</div>
+  </div>
 
-<div class="display">
-  <div class="status" id="statusText">現在</div>
+  <div class="top-shadow"></div>
 
-  <div class="line" id="line"></div>
+  <div class="main">
+    <div class="next-label" id="nextLabel">次は</div>
+    <div class="station-wrap">
+      <div class="station-sub" id="stationSub"></div>
+      <div class="station-main" id="stationMain">静岡</div>
+      <div class="status" id="statusText">停車中</div>
+      <div class="timer" id="timerText">あと 10秒</div>
+    </div>
+  </div>
 
-  <div class="bottom" id="bottomText"></div>
+  <div class="blue-line"></div>
 
-  <div class="notice"><span id="noticeText">お知らせなし</span></div>
-</div>
+  <div class="route-area">
+    <div class="route-scroll">
+      <div class="station-label-layer" id="stationLabelLayer"></div>
+      <div class="route-head"></div>
+      <div class="route-current" id="routeCurrent"></div>
+      <div class="route-base"></div>
+      <div id="stationBoxLayer"></div>
+    </div>
+  </div>
 
-<div class="settings-btn" onclick="togglePanel()">⚙️</div>
+  <div class="controls">
+    <button onclick="nextPhase()">次へ進める</button>
+    <button onclick="toggleLanguage()" class="secondary">言語切替</button>
+    <button onclick="toggleAuto()" class="secondary" id="autoBtn">自動切替: ON</button>
+    <button onclick="openEditor()">駅編集</button>
+    <button onclick="editNotice()" class="secondary">お知らせ変更</button>
+  </div>
 
-<div class="panel" id="panel">
-  <button onclick="startTrain()">▶️</button>
-  <button onclick="stopTrain()">⏹</button>
-  <button onclick="toggleLoop()">🔁 環状線</button>
+  <div class="hint">画面を3回タップすると駅編集画面が開きます</div>
 
-  <div id="loopStateText"></div>
+  <div class="editor" id="editor">
+    <div class="panel">
+      <h2>駅を編集</h2>
+      <p>日本語名 / 英語名 / 滞在秒 / 移動秒</p>
+      <div id="editorList"></div>
+      <div class="panel-actions">
+        <button onclick="addStation()">駅を追加</button>
+        <button class="secondary" onclick="saveEditor()">保存</button>
+        <button class="secondary" onclick="closeEditor()">閉じる</button>
+      </div>
+    </div>
+  </div>
 
-  <hr>
+  <div class="tap-toast" id="tapToast"></div>
 
-  <input id="name" placeholder="駅名"><br>
-  <input id="stop" type="number" placeholder="停車秒"><br>
-  <input id="travel" type="number" placeholder="移動秒"><br>
-  <button onclick="addStation()">追加</button>
-
-  <hr>
-
-  <input id="noticeInput" placeholder="お知らせ">
-  <button onclick="setNotice()">設定</button>
-
-  <div id="stationList"></div>
-</div>
+  <div class="notice-wrap">
+    <div class="notice-track" id="noticeText">
+      この電車は環状線です。駆け込み乗車はおやめください。足元にご注意ください。
+    </div>
+  </div>
 
 <script>
-// ===== 音声 =====
-function speak(text){
-  const uttr = new SpeechSynthesisUtterance(text);
-  uttr.lang = "ja-JP";
-  speechSynthesis.cancel();
-  speechSynthesis.speak(uttr);
-}
+  let stations = [
+    { ja: "東京", en: "Tokyo", dwell: 8, travel: 6 },
+    { ja: "上野", en: "Ueno", dwell: 7, travel: 5 },
+    { ja: "秋葉原", en: "Akihabara", dwell: 8, travel: 4 },
+    { ja: "神田", en: "Kanda", dwell: 6, travel: 5 },
+    { ja: "東京", en: "Tokyo", dwell: 8, travel: 6 }
+  ];
 
-// ===== データ =====
-let stations = [
-  {name:"掛川",stop:5,travel:5},
-  {name:"浜松",stop:5,travel:5}
-];
+  let currentIndex = 1;
+  let language = "ja";
+  let autoMode = true;
+  let tapTimes = [];
+  let draftStations = [];
 
-let index=0;
-let running=false;
-let loop=true;
-let interval;
+  let phase = "dwell"; // dwell or travel
+  let remaining = stations[currentIndex].dwell;
+  let intervalId = null;
 
-// ===== UI =====
-function togglePanel(){
-  panel.style.display =
-    panel.style.display==="block"?"none":"block";
-}
+  function getCurrentStation() {
+    return stations[currentIndex];
+  }
 
-// ===== 描画 =====
-function render(){
-  line.innerHTML="";
-  stationList.innerHTML="";
+  function getNextIndex() {
+    return (currentIndex + 1) % stations.length;
+  }
 
-  stations.forEach((s,i)=>{
-    const div=document.createElement("div");
-    div.className="station";
-    div.innerHTML=`
-      <div class="circle"></div>
-      <div class="name">${s.name}</div>
-      <div class="time" id="t${i}"></div>
-    `;
-    line.appendChild(div);
+  function getNextStation() {
+    return stations[getNextIndex()];
+  }
 
-    const item=document.createElement("div");
-    item.textContent=s.name;
+  function getDestinationText() {
+    return language === "ja" ? "環状線 外回り" : "Circle Line Outer Loop";
+  }
 
-    const del=document.createElement("button");
-    del.textContent="削除";
-    del.onclick=()=>deleteStation(i);
+  function renderMain() {
+    const current = getCurrentStation();
+    const next = getNextStation();
 
-    item.appendChild(del);
-    stationList.appendChild(item);
+    document.getElementById("serviceType").textContent = language === "ja" ? "環状線" : "Circle";
+    document.getElementById("destinationText").textContent = getDestinationText();
+    document.getElementById("routeCurrent").classList.toggle("en", language === "en");
+
+    if (phase === "dwell") {
+      document.getElementById("nextLabel").textContent = language === "ja" ? "ただいま" : "Now";
+      document.getElementById("stationMain").textContent = language === "ja" ? current.ja : current.en;
+      document.getElementById("stationSub").textContent = language === "ja" ? "" : current.ja;
+      document.getElementById("statusText").textContent = language === "ja" ? "停車中" : "Stopped";
+      document.getElementById("timerText").textContent = language === "ja"
+        ? `発車まで あと ${remaining}秒`
+        : `Departs in ${remaining}s`;
+    } else {
+      document.getElementById("nextLabel").textContent = language === "ja" ? "次は" : "Next";
+      document.getElementById("stationMain").textContent = language === "ja" ? next.ja : next.en;
+      document.getElementById("stationSub").textContent = language === "ja" ? "" : next.ja;
+      document.getElementById("statusText").textContent = language === "ja" ? "走行中" : "Moving";
+      document.getElementById("timerText").textContent = language === "ja"
+        ? `到着まで あと ${remaining}秒`
+        : `Arrives in ${remaining}s`;
+    }
+  }
+
+  function renderRoute() {
+    const labelLayer = document.getElementById("stationLabelLayer");
+    const boxLayer = document.getElementById("stationBoxLayer");
+
+    labelLayer.innerHTML = "";
+    boxLayer.innerHTML = "";
+
+    const count = stations.length;
+    const start = 68;
+    const endOffset = 110;
+    const lineWidth = window.innerWidth - start - endOffset;
+    const usable = Math.max(120, lineWidth);
+
+    stations.forEach((station, index) => {
+      const x = start + (usable * index / Math.max(1, count - 1));
+
+      const box = document.createElement("div");
+      box.className = "station-box" + (index === currentIndex ? " active" : "");
+      box.style.left = x + "px";
+      boxLayer.appendChild(box);
+
+      const name = document.createElement("div");
+      name.className = "station-name " + language;
+      name.style.left = x + "px";
+      name.textContent = language === "ja" ? station.ja : station.en;
+      labelLayer.appendChild(name);
+    });
+  }
+
+  function renderAll() {
+    if (stations.length < 2) return;
+    if (currentIndex >= stations.length) currentIndex = 0;
+    renderMain();
+    renderRoute();
+  }
+
+  function tick() {
+    if (!autoMode) return;
+
+    remaining--;
+    if (remaining <= 0) {
+      if (phase === "dwell") {
+        phase = "travel";
+        remaining = getCurrentStation().travel;
+      } else {
+        currentIndex = getNextIndex();
+        phase = "dwell";
+        remaining = getCurrentStation().dwell;
+        language = language === "ja" ? "en" : "ja";
+      }
+    }
+    renderAll();
+  }
+
+  function startAuto() {
+    stopAuto();
+    intervalId = setInterval(tick, 1000);
+  }
+
+  function stopAuto() {
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  }
+
+  function toggleAuto() {
+    autoMode = !autoMode;
+    document.getElementById("autoBtn").textContent = "自動切替: " + (autoMode ? "ON" : "OFF");
+    if (autoMode) startAuto();
+    else stopAuto();
+  }
+
+  function toggleLanguage() {
+    language = language === "ja" ? "en" : "ja";
+    renderAll();
+  }
+
+  function nextPhase() {
+    if (phase === "dwell") {
+      phase = "travel";
+      remaining = getCurrentStation().travel;
+    } else {
+      currentIndex = getNextIndex();
+      phase = "dwell";
+      remaining = getCurrentStation().dwell;
+    }
+    renderAll();
+  }
+
+  function showToast(text) {
+    const toast = document.getElementById("tapToast");
+    toast.textContent = text;
+    toast.style.display = "block";
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+      toast.style.display = "none";
+    }, 900);
+  }
+
+  function handleTap() {
+    const now = Date.now();
+    tapTimes = tapTimes.filter(t => now - t < 900);
+    tapTimes.push(now);
+
+    if (tapTimes.length === 1) showToast("1回");
+    if (tapTimes.length === 2) showToast("2回");
+    if (tapTimes.length >= 3) {
+      tapTimes = [];
+      openEditor();
+    }
+  }
+
+  document.getElementById("tapArea").addEventListener("click", (e) => {
+    const editorOpen = document.getElementById("editor").classList.contains("open");
+    if (editorOpen) return;
+    if (e.target.tagName === "BUTTON") return;
+    handleTap();
   });
 
-  loopStateText.textContent =
-    "環状線:"+(loop?"ON":"OFF");
-}
+  function openEditor() {
+    draftStations = JSON.parse(JSON.stringify(stations));
+    renderEditor();
+    document.getElementById("editor").classList.add("open");
+  }
 
-// ===== 駅操作 =====
-function addStation(){
-  const name=document.getElementById("name").value.trim();
-  const stop=Number(document.getElementById("stop").value);
-  const travel=Number(document.getElementById("travel").value);
+  function closeEditor() {
+    document.getElementById("editor").classList.remove("open");
+  }
 
-  if(!name) return;
+  function renderEditor() {
+    const list = document.getElementById("editorList");
+    list.innerHTML = "";
 
-  stations.push({name,stop,travel});
-  render();
-}
+    draftStations.forEach((station, index) => {
+      const row = document.createElement("div");
+      row.className = "editor-row";
 
-function deleteStation(i){
-  stations.splice(i,1);
-  render();
-}
+      const ja = document.createElement("input");
+      ja.value = station.ja;
+      ja.placeholder = "日本語駅名";
+      ja.oninput = (e) => draftStations[index].ja = e.target.value;
 
-// ===== 表示更新 =====
-function updateStations(){
-  document.querySelectorAll(".station").forEach((el,i)=>{
-    el.classList.remove("current","passed");
-    if(i<index) el.classList.add("passed");
-    if(i===index) el.classList.add("current");
-  });
-}
+      const en = document.createElement("input");
+      en.value = station.en;
+      en.placeholder = "英語駅名";
+      en.oninput = (e) => draftStations[index].en = e.target.value;
 
-// ===== 運行 =====
-function runTrain(){
-  if(!running) return;
+      const dwell = document.createElement("input");
+      dwell.type = "number";
+      dwell.min = "1";
+      dwell.value = station.dwell;
+      dwell.placeholder = "滞在秒";
+      dwell.oninput = (e) => draftStations[index].dwell = Number(e.target.value);
 
-  updateStations();
+      const travel = document.createElement("input");
+      travel.type = "number";
+      travel.min = "1";
+      travel.value = station.travel;
+      travel.placeholder = "移動秒";
+      travel.oninput = (e) => draftStations[index].travel = Number(e.target.value);
 
-  let s=stations[index].stop;
+      const up = document.createElement("button");
+      up.className = "mini-btn move";
+      up.textContent = "↑";
+      up.onclick = () => moveStation(index, -1);
 
-  speak(`${stations[index].name}、${stations[index].name}です`);
+      const down = document.createElement("button");
+      down.className = "mini-btn move";
+      down.textContent = "↓";
+      down.onclick = () => moveStation(index, 1);
 
-  interval=setInterval(()=>{
-    statusText.textContent="現在";
-    bottomText.textContent=`停車中 ${s}秒`;
+      const del = document.createElement("button");
+      del.className = "mini-btn delete";
+      del.textContent = "削除";
+      del.onclick = () => deleteStation(index);
 
-    s--;
+      row.appendChild(ja);
+      row.appendChild(en);
+      row.appendChild(dwell);
+      row.appendChild(travel);
+      row.appendChild(up);
+      row.appendChild(down);
+      row.appendChild(del);
+      list.appendChild(row);
+    });
+  }
 
-    if(s<0){
-      clearInterval(interval);
+  function moveStation(index, dir) {
+    const newIndex = index + dir;
+    if (newIndex < 0 || newIndex >= draftStations.length) return;
+    const temp = draftStations[index];
+    draftStations[index] = draftStations[newIndex];
+    draftStations[newIndex] = temp;
+    renderEditor();
+  }
 
-      speak("ドアが閉まります");
+  function deleteStation(index) {
+    if (draftStations.length <= 2) {
+      alert("駅は2つ以上必要です");
+      return;
+    }
+    draftStations.splice(index, 1);
+    renderEditor();
+  }
 
-      let t=stations[index].travel;
+  function addStation() {
+    draftStations.push({
+      ja: "新しい駅",
+      en: "New Station",
+      dwell: 8,
+      travel: 6
+    });
+    renderEditor();
+  }
 
-      interval=setInterval(()=>{
-        statusText.textContent="まもなく";
+  function saveEditor() {
+    const filtered = draftStations
+      .filter(s => s.ja && s.en)
+      .map(s => ({
+        ja: s.ja.trim(),
+        en: s.en.trim(),
+        dwell: Math.max(1, Number(s.dwell) || 1),
+        travel: Math.max(1, Number(s.travel) || 1)
+      }));
 
-        let nextIndex=index+1;
-        if(loop && index===stations.length-1) nextIndex=0;
-
-        let next=stations[nextIndex];
-
-        bottomText.textContent=`${next.name}まで ${t}秒`;
-
-        t--;
-
-        if(t<0){
-          clearInterval(interval);
-
-          speak(`次は ${next.name}`);
-
-          if(index<stations.length-1){
-            index++;
-          }else if(loop){
-            index=0;
-          }
-
-          runTrain();
-        }
-
-      },1000);
+    if (filtered.length < 2) {
+      alert("駅は2つ以上必要です");
+      return;
     }
 
-  },1000);
-}
+    stations = filtered;
+    currentIndex = Math.min(currentIndex, stations.length - 1);
+    if (phase === "dwell") {
+      remaining = stations[currentIndex].dwell;
+    } else {
+      remaining = stations[currentIndex].travel;
+    }
+    renderAll();
+    closeEditor();
+  }
 
-// ===== 操作 =====
-function startTrain(){
-  clearInterval(interval);
-  index=0;
-  running=true;
-  runTrain();
-}
+  function editNotice() {
+    const current = document.getElementById("noticeText").textContent.trim();
+    const text = prompt("お知らせ文を入力", current);
+    if (text !== null && text.trim() !== "") {
+      document.getElementById("noticeText").textContent = text;
+    }
+  }
 
-function stopTrain(){
-  running=false;
-  clearInterval(interval);
-}
+  window.addEventListener("resize", renderRoute);
 
-function toggleLoop(){
-  loop=!loop;
-  render();
-}
-
-// ===== お知らせ =====
-function setNotice(){
-  noticeText.textContent =
-    document.getElementById("noticeInput").value;
-}
-
-// 初期
-render();
+  renderAll();
+  startAuto();
 </script>
-
 </body>
 </html>
