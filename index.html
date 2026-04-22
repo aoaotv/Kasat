@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>電車UI 完全版</title>
+<title>電車UI 音声版</title>
 
 <style>
 body {
@@ -26,7 +26,7 @@ body {
   flex-direction:column;
 }
 
-/* 左上ステータス */
+/* 左上 */
 .status {
   position:absolute;
   top:10px;
@@ -35,24 +35,9 @@ body {
   font-weight:bold;
 }
 
-/* 上 */
-.top {
-  flex:2;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:40px;
-  font-weight:bold;
-}
-
-/* 区間 */
-.section {
-  text-align:center;
-}
-
 /* 路線 */
 .line {
-  flex:1;
+  flex:2;
   display:flex;
   justify-content:space-around;
   align-items:flex-end;
@@ -84,13 +69,14 @@ body {
   font-size:24px;
 }
 
-.time { font-size:12px; }
+.time { font-size:14px; }
 
 .passed { opacity:0.2; }
 
 /* 下 */
 .bottom {
   text-align:center;
+  font-size:22px;
 }
 
 /* お知らせ */
@@ -129,8 +115,6 @@ body {
   border:2px solid #333;
   padding:10px;
   display:none;
-  max-height:70vh;
-  overflow:auto;
 }
 </style>
 </head>
@@ -139,9 +123,6 @@ body {
 
 <div class="display">
   <div class="status" id="statusText">現在</div>
-
-  <div class="top" id="topText">待機中</div>
-  <div class="section" id="sectionText"></div>
 
   <div class="line" id="line"></div>
 
@@ -155,7 +136,7 @@ body {
 <div class="panel" id="panel">
   <button onclick="startTrain()">▶️</button>
   <button onclick="stopTrain()">⏹</button>
-  <button onclick="toggleLoop()">🔁 環状線切替</button>
+  <button onclick="toggleLoop()">🔁 環状線</button>
 
   <div id="loopStateText"></div>
 
@@ -171,12 +152,19 @@ body {
   <input id="noticeInput" placeholder="お知らせ">
   <button onclick="setNotice()">設定</button>
 
-  <hr>
-
   <div id="stationList"></div>
 </div>
 
 <script>
+// ===== 音声 =====
+function speak(text){
+  const uttr = new SpeechSynthesisUtterance(text);
+  uttr.lang = "ja-JP";
+  speechSynthesis.cancel();
+  speechSynthesis.speak(uttr);
+}
+
+// ===== データ =====
 let stations = [
   {name:"掛川",stop:5,travel:5},
   {name:"浜松",stop:5,travel:5}
@@ -199,7 +187,6 @@ function render(){
   stationList.innerHTML="";
 
   stations.forEach((s,i)=>{
-    // 路線
     const div=document.createElement("div");
     div.className="station";
     div.innerHTML=`
@@ -209,7 +196,6 @@ function render(){
     `;
     line.appendChild(div);
 
-    // 設定リスト
     const item=document.createElement("div");
     item.textContent=s.name;
 
@@ -222,7 +208,7 @@ function render(){
   });
 
   loopStateText.textContent =
-    "環状線状態: " + (loop ? "ON" : "OFF");
+    "環状線:"+(loop?"ON":"OFF");
 }
 
 // ===== 駅操作 =====
@@ -231,24 +217,14 @@ function addStation(){
   const stop=Number(document.getElementById("stop").value);
   const travel=Number(document.getElementById("travel").value);
 
-  if(!name || stop<=0 || travel<0){
-    alert("入力ミス");
-    return;
-  }
+  if(!name) return;
 
   stations.push({name,stop,travel});
-
-  document.getElementById("name").value="";
-  document.getElementById("stop").value="";
-  document.getElementById("travel").value="";
-
   render();
 }
 
 function deleteStation(i){
   stations.splice(i,1);
-  if(index>=i) index--;
-  if(index<0) index=0;
   render();
 }
 
@@ -261,37 +237,26 @@ function updateStations(){
   });
 }
 
-// ===== 区間 =====
-function updateSection(){
-  let nextIndex=index+1;
-  if(loop && index===stations.length-1) nextIndex=0;
-
-  if(!loop && index===stations.length-1){
-    sectionText.textContent="終点";
-  }else{
-    sectionText.textContent=
-      `${stations[index].name}〜${stations[nextIndex].name}`;
-  }
-}
-
 // ===== 運行 =====
 function runTrain(){
   if(!running) return;
 
   updateStations();
-  updateSection();
 
   let s=stations[index].stop;
 
+  speak(`${stations[index].name}、${stations[index].name}です`);
+
   interval=setInterval(()=>{
     statusText.textContent="現在";
-    topText.textContent=`まもなく ${stations[index].name}`;
     bottomText.textContent=`停車中 ${s}秒`;
 
     s--;
 
     if(s<0){
       clearInterval(interval);
+
+      speak("ドアが閉まります");
 
       let t=stations[index].travel;
 
@@ -303,13 +268,14 @@ function runTrain(){
 
         let next=stations[nextIndex];
 
-        topText.textContent=`次は ${next.name}`;
         bottomText.textContent=`${next.name}まで ${t}秒`;
 
         t--;
 
         if(t<0){
           clearInterval(interval);
+
+          speak(`次は ${next.name}`);
 
           if(index<stations.length-1){
             index++;
