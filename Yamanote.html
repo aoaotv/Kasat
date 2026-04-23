@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Train LCD Complete Final</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --text: #111827;
+      --sub: #6b7280;
+      --theme: #1f33ff;
+      --theme-dark: #1626cc;
+      --accent: #ff6a00;
+      --ticker-bg: #0f1115;
+      --shadow: 0 10px 24px rgba(0,0,0,.16);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100vh; /* 画面に完全フィット */
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { display: flex; flex-direction: column; }
+
+    .app {
+      height: 100vh; /* ←これが超重要 */
+      display: grid;
+      grid-template-rows: auto auto auto auto 1fr auto; /* 真ん中だけ伸ばす */
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 16px 4px; /* 上詰め */
+    }
+
+    .badge {
+      background: linear-gradient(color-mix(in srgb, var(--theme) 78%, white), color-mix(in srgb, var(--theme-dark) 90%, black));
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: clamp(18px, 2vw, 24px);
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.25), var(--shadow);
+    }
+
+    .destination {
+      min-width: 0;
+      font-size: clamp(22px, 2.5vw, 34px);
+      font-weight: 900;
+      color: #5c606a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .divider-shadow {
+      height: 2px; /* ほぼ消す */
+      box-shadow: 0 2px 4px rgba(0,0,0,.1);
+      background: transparent;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 120px 1fr auto; /* 右に秒表示追加 */
+      align-items: center;
+      gap: 16px;
+      padding: 0 14px 0;
+    }
+
+    .left-label {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      font-size: clamp(20px, 2vw, 34px);
+      font-weight: 900;
+      color: #111;
+      white-space: nowrap; /* 改行防止 */
+    }
+
+    .station-wrap {
+      min-width: 0;
+      text-align: left; /* 中央やめる */
+      padding-left: 8px; /* 強制的に離す */
+    }
+    .station-sub {
+      min-height: 0.8em; /* 無駄な高さ削減 */
+      color: var(--sub);
+      font-weight: 800;
+      line-height: 1.0;
+      font-size: clamp(16px, 2vw, 28px);
+    }
+    .station-main {
+      min-height: 0.9em;
+      color: #111;
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: .01em;
+      font-size: clamp(44px, 5vw, 88px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .time-panel {
+      min-width: 132px;
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+    .time-row {
+      display: grid;
+      grid-template-columns: auto auto;
+      align-items: baseline;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .time-row.hidden {
+      display: none;
+    }
+    .time-label {
+      color: #4b5563;
+      font-size: clamp(14px, 1.4vw, 22px);
+      font-weight: 900;
+    }
+    .time-value {
+      color: #111;
+      font-size: clamp(22px, 2.3vw, 36px);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .blue-line {
+      position: relative;
+      z-index: 10; /* 上に固定 */
+      height: 6px;
+      background: var(--theme);
+      box-shadow: 0 1px 2px rgba(0,0,0,.22);
+      margin-top: 0;
+    }
+
+    .route-area {
+      position: relative;
+      z-index: 1;
+      min-height: 60px;
+      overflow: hidden;
+      padding: 14px 10px 0; /* 上に余白増やして完全分離 */
+      margin-top: 0;
+    }
+
+    .route-inner { position: absolute; inset: 0; }
+    .layer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+    }
+
+    .shape-layer {
+      top: 36px;
+      height: 24px;
+      z-index: 1;
+    }
+    .arrow-layer, .moving-layer {
+      top: 36px;
+      height: 24px;
+      z-index: 2;
+    }
+    .name-layer {
+      top: 22px; /* ←さらに下げる（決定版） */
+      height: 44px;
+      z-index: 3;
+    }
+
+    .guide-layer {
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity .25s ease;
+      z-index: 5;
+      pointer-events: none;
+      background: rgba(243,244,246,.96);
+      padding: 12px 18px 12px;
+    }
+    .guide-layer.show { opacity: 1; }
+
+    .route-guide {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .route-guide-title { font-size: 0; margin: 0; }
+    .route-guide-main {
+      margin-top: 4px;
+      color: #111;
+      font-size: clamp(42px, 5vw, 86px);
+      line-height: 1.05;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 92%;
+    }
+    .route-guide-sub {
+      margin-top: 8px;
+      color: var(--sub);
+      font-size: clamp(18px, 1.9vw, 30px);
+      line-height: 1.08;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 92%;
+    }
+
+    .track-head {
+      position: absolute;
+      left: 26px;
+      top: 0;
+      width: 46px;
+      height: 36px;
+      background: #d7d7da;
+      box-shadow: var(--shadow);
+    }
+    .track-base {
+      position: absolute;
+      left: 64px;
+      right: 96px;
+      top: 0;
+      height: 36px;
+      background: linear-gradient(90deg, var(--theme-dark), var(--theme));
+      box-shadow: var(--shadow);
+    }
+    .track-base::after {
+      content: "";
+      position: absolute;
+      right: -56px;
+      top: 0;
+      border-top: 18px solid transparent;
+      border-bottom: 18px solid transparent;
+      border-left: 56px solid var(--theme);
+    }
+
+    .station {
+      position: absolute;
+      top: 2px; /* 少し上げて間隔を広げる */
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #c9ccd3;
+      transform: translateX(-50%);
+      transition: all .25s ease;
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+    .station.active {
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent), 0 0 22px var(--accent);
+    }
+
+    .station-name {
+      position: absolute;
+      left: 0;
+      top: 32px; /* ←さらに下げてマルとの間を広げる */
+      transform: translateX(-50%); /* ←完全に離す */
+      transform: translateX(-50%);
+      font-weight: 900;
+      color: #24262a;
+      white-space: nowrap;
+      writing-mode: horizontal-tb;
+      font-size: clamp(14px, 1.2vw, 20px);
+      line-height: 1.1;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .station-name.dim { color: #cbced6; }
+
+    .moving-arrow {
+      position: absolute;
+      top: 0px;
+      width: 20px;
+      height: 20px;
+      transform: translateX(-50%);
+      clip-path: polygon(0 0, 68% 0, 100% 50%, 68% 100%, 0 100%, 20% 50%);
+      background: linear-gradient(#ff7d21, #c74600);
+      box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    }
+    .moving-arrow.en {
+      background: linear-gradient(#59bcff, #1b79d5);
+    }
+
+    .segment-arrow {
+      position: absolute;
+      top: 2px;
+      width: 10px;
+      height: 10px;
+      transform: translateX(-50%);
+      background: var(--accent);
+      clip-path: polygon(0 10%, 62% 10%, 62% 0, 100% 50%, 62% 100%, 62% 90%, 0 90%, 18% 50%);
+      opacity: 0;
+    }
+    .segment-arrow.blink { animation: blink 1s steps(1, end) infinite; }
+    @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+    .controls {
+      display: none;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 6px 14px 10px;
+    }
+    .controls.show { display: flex; }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: 900;
+      color: #fff;
+      background: color-mix(in srgb, var(--theme) 78%, black);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+    }
+    button.secondary { background: #666; }
+    button.warn { background: #c2410c; }
+
+    .tap-hint {
+      text-align: center;
+      color: #5f6470;
+      font-size: 13px;
+      padding: 0 0 8px;
+    }
+
+    .ticker-wrap {
+      flex-shrink: 0;
+      height: 44px;
+      background: var(--ticker-bg);
+      color: #fff;
+      overflow: hidden;
+      border-top: 3px solid var(--theme);
+      padding-bottom: var(--safe-bottom);
+    }
+    .ticker {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      line-height: 44px;
+      font-size: clamp(16px, 1.5vw, 22px);
+      font-weight: 900;
+      animation: ticker 18s linear infinite;
+    }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+    .editor {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 50;
+      background: rgba(0,0,0,.38);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .editor.show { display: flex; }
+
+    .panel {
+      width: min(1180px, 100%);
+      max-height: 88vh;
+      overflow: auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 22px 50px rgba(0,0,0,.26);
+      padding: 18px;
+    }
+    .panel h2 { margin: 0 0 12px; }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .field { display: grid; gap: 6px; }
+    .field label {
+      font-size: 14px;
+      font-weight: 800;
+      color: #4b5563;
+    }
+    .field input, .field textarea, .field select, .station-edit-row input {
+      width: 100%;
+      font-size: 16px;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+    }
+    .theme-preview {
+      height: 18px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--theme-dark), var(--theme));
+      border: 1px solid #d1d5db;
+    }
+
+    .station-edit-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr .72fr .72fr 1.2fr 1.2fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .mini-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #fff;
+      background: #4b5563;
+      cursor: pointer;
+    }
+    .mini-btn.delete { background: #b91c1c; }
+    .mini-btn.move { background: #6b7280; }
+    .panel-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(54px + var(--safe-bottom));
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.82);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 10px 14px;
+      border-radius: 999px;
+      z-index: 90;
+      display: none;
+    }
+
+    @media (orientation: landscape) {
+      html, body {
+        height: 100vh;
+      }
+
+      .app {
+        height: 100vh;
+        grid-template-rows: auto auto auto auto 1fr auto;
+      }
+
+      .route-area {
+        min-height: 0;
+        height: 100%;
+        margin-top: 0;
+      }
+
+      .shape-layer, .arrow-layer, .moving-layer {
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      .name-layer {
+        top: 18px;
+      }
+
+      .station-name {
+        top: 28px; /* 横向きも間隔広げる */
+      }
+    } /* ←ここが原因だったので修正 */
+      }
+    }
+    }
+      .header { padding: 10px 14px 8px; }
+      .badge { padding: 10px 16px; font-size: 16px; }
+      .destination { font-size: 20px; }
+      .main { grid-template-columns: 90px 1fr auto; padding: 6px 14px 0; }
+      .left-label { font-size: 22px; }
+      .station-sub { font-size: 18px; min-height: 1.1em; }
+      .station-main { font-size: 46px; min-height: 1.1em; }
+      .time-panel { min-width: 98px; gap: 4px; }
+      .time-label { font-size: 11px; }
+      .time-value { font-size: 18px; }
+      .blue-line { margin-top: 4px; }
+      .route-area { min-height: 116px; padding: 0 10px 2px; }
+      .shape-layer, .arrow-layer, .moving-layer { top: 56px; }
+      .name-layer { top: 8px; height: 64px; }
+      .guide-layer { inset: 0; padding: 8px 12px 10px; }
+      .route-guide-main { font-size: 32px; max-width: 94%; }
+      .route-guide-sub { font-size: 14px; max-width: 94%; }
+      .track-head { left: 18px; width: 40px; height: 30px; }
+      .track-base { left: 56px; right: 84px; height: 30px; }
+      .track-base::after { right: -48px; border-top-width: 15px; border-bottom-width: 15px; border-left-width: 48px; }
+      .station { width: 12px; height: 12px; top: 9px; }
+      .station-name { font-size: 12px; top: 0; max-width: 88px; }
+      .moving-arrow { width: 18px; height: 18px; top: 6px; }
+      .segment-arrow { width: 8px; height: 8px; top: 11px; }
+      .controls button { font-size: 13px; padding: 8px 10px; }
+      .ticker-wrap { height: 36px; }
+      .ticker { line-height: 36px; font-size: 14px; }
+      .tap-hint { font-size: 11px; padding-bottom: 4px; }
+      .station-edit-row { grid-template-columns: 1fr 1fr .8fr .8fr 1fr 1fr auto auto auto; }
+    }
+
+    @media (max-width: 640px) {
+      .grid2 { grid-template-columns: 1fr; }
+      .station-edit-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body id="tapArea">
+  <div class="app">
+    <div class="header">
+      <div class="badge" id="serviceType">山手線</div>
+      <div class="destination" id="destinationText">内回り</div>
+    </div>
+
+    <div class="divider-shadow"></div>
+
+    <div class="main">
+      <div class="left-label" id="leftLabel">次は</div>
+      <div class="station-wrap">
+        <div class="station-sub" id="stationSub"></div>
+        <div class="station-main" id="stationMain">東京</div>
+      </div>
+      <div class="time-panel">
+        <div class="time-row" id="stopTimeRow">
+          <div class="time-label" id="stopTimeLabel">停車時間</div>
+          <div class="time-value" id="stopTimeValue">5秒</div>
+        </div>
+        <div class="time-row" id="arrivalTimeRow">
+          <div class="time-label" id="arrivalTimeLabel">到着時間</div>
+          <div class="time-value" id="arrivalTimeValue">17秒</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="blue-line"></div>
+
+    <div class="route-area">
+      <div class="route-inner">
+        <div class="layer shape-layer" id="shapeLayer">
+          <div class="track-head"></div>
+          <div class="track-base"></div>
+        </div>
+        <div class="layer arrow-layer" id="arrowLayer"></div>
+        <div class="layer moving-layer" id="movingLayer"></div>
+        <div class="layer name-layer" id="nameLayer"></div>
+        <div class="layer guide-layer" id="guideLayer">
+          <div class="route-guide">
+            <div class="route-guide-title" id="guideTitle"></div>
+            <div class="route-guide-main" id="guideMain">まもなく 静岡</div>
+            <div class="route-guide-sub" id="guideSub">Shizuoka</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button onclick="manualAdvance()">次へ</button>
+      <button onclick="toggleAuto()" class="secondary" id="autoBtn">自動進行: ON</button>
+      <button onclick="openEditor()">設定</button>
+      <button onclick="lockControls()" class="warn">操作を隠す</button>
+    </div>
+
+    <div class="tap-hint" id="tapHint">画面を3回タップで操作を表示</div>
+
+    <div class="ticker-wrap">
+      <div class="ticker" id="tickerText">お知らせを読み込み中です。</div>
+    </div>
+  </div>
+
+  <div class="editor" id="editor">
+    <div class="panel">
+      <h2>列車LCD設定</h2>
+
+      <div class="grid2">
+        <div class="field">
+          <label>種別 日本語</label>
+          <input id="serviceJaInput" />
+        </div>
+        <div class="field">
+          <label>種別 英語</label>
+          <input id="serviceEnInput" />
+        </div>
+        <div class="field">
+          <label>行先 日本語（空なら終点）</label>
+          <input id="destJaInput" />
+        </div>
+        <div class="field">
+          <label>行先 英語（空なら終点）</label>
+          <input id="destEnInput" />
+        </div>
+        <div class="field">
+          <label>テーマ色</label>
+          <select id="themeSelect">
+            <option value="blue">ブルー</option>
+            <option value="green">グリーン</option>
+            <option value="red">レッド</option>
+            <option value="orange">オレンジ</option>
+            <option value="purple">パープル</option>
+            <option value="black">ブラック</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>プレビュー</label>
+          <div class="theme-preview"></div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:14px;">
+        <label>お知らせ（| で複数登録）</label>
+        <textarea id="noticeInput" rows="3"></textarea>
+      </div>
+
+      <div id="stationList"></div>
+
+      <div class="panel-actions">
+        <button onclick="addStation()">駅を追加</button>
+        <button onclick="saveEditor()" class="secondary">保存</button>
+        <button onclick="closeEditor()" class="secondary">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'train_lcd_complete_final_v1';
+      const NORMAL_PHASE_SECONDS = 8;
+      const GUIDE_PHASE_SECONDS = 2;
+
+      const THEMES = {
+        blue:   { theme: '#1f33ff', dark: '#1626cc', accent: '#ff6a00', soft: '#ffd4b3' },
+        green:  { theme: '#00a35a', dark: '#007943', accent: '#ff8a00', soft: '#ffd8ae' },
+        red:    { theme: '#d82a2a', dark: '#a91515', accent: '#ff9800', soft: '#ffe1bc' },
+        orange: { theme: '#f27a00', dark: '#c25d00', accent: '#0d6efd', soft: '#b8d4ff' },
+        purple: { theme: '#7a3cff', dark: '#5925c7', accent: '#ff8a00', soft: '#ffd8ae' },
+        black:  { theme: '#30343b', dark: '#111317', accent: '#ff7a00', soft: '#ffd4b3' }
+      };
+
+      const defaultData = {
+  "serviceJa": "山手線",
+  "serviceEn": "Yamanote Line",
+  "destinationJa": "内回り",
+  "destinationEn": "Inner Loop",
+  "theme": "green",
+  "notices": [
+    "この電車は山手線内回りです。",
+    "発車時刻が非常に短く設定されています。",
+    "駆け込み乗車はおやめください。"
+  ],
+  "stations": [
+    {
+      "ja": "東京",
+      "en": "Tokyo",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "神田",
+      "en": "Kanda",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "秋葉原",
+      "en": "Akihabara",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "御徒町",
+      "en": "Okachimachi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "上野",
+      "en": "Ueno",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "鶯谷",
+      "en": "Uguisudani",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "日暮里",
+      "en": "Nippori",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "西日暮里",
+      "en": "Nishi-Nippori",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "田端",
+      "en": "Tabata",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "駒込",
+      "en": "Komagome",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "巣鴨",
+      "en": "Sugamo",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "大塚",
+      "en": "Otsuka",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "池袋",
+      "en": "Ikebukuro",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "目白",
+      "en": "Mejiro",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "高田馬場",
+      "en": "Takadanobaba",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "新大久保",
+      "en": "Shin-Okubo",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "新宿",
+      "en": "Shinjuku",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "代々木",
+      "en": "Yoyogi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "原宿",
+      "en": "Harajuku",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "渋谷",
+      "en": "Shibuya",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "恵比寿",
+      "en": "Ebisu",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "目黒",
+      "en": "Meguro",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "五反田",
+      "en": "Gotanda",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "大崎",
+      "en": "Osaki",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "品川",
+      "en": "Shinagawa",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "高輪ゲートウェイ",
+      "en": "Takanawa Gateway",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "田町",
+      "en": "Tamachi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "浜松町",
+      "en": "Hamamatsucho",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "新橋",
+      "en": "Shimbashi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "有楽町",
+      "en": "Yurakucho",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    }
+  ]
+};
+
+      const state = {
+        data: loadData(),
+        currentIndex: 0,
+        phase: 'stop', // stop | guide | move
+        remainSeconds: 0,
+        autoEnabled: true,
+        controlsUnlocked: false,
+        currentLang: 'ja',
+        draft: null,
+        taps: [],
+        phaseTimer: null,
+        langTimer: null
+      };
+
+      const el = (id) => document.getElementById(id);
+
+      function loadData() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return structuredClone(defaultData);
+          return normalizeData(JSON.parse(raw));
+        } catch {
+          return structuredClone(defaultData);
+        }
+      }
+
+      function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      }
+
+      function normalizeData(data) {
+        const out = structuredClone(defaultData);
+        if (data && typeof data === 'object') {
+          out.serviceJa = String(data.serviceJa || out.serviceJa);
+          out.serviceEn = String(data.serviceEn || out.serviceEn);
+          out.destinationJa = String(data.destinationJa || '');
+          out.destinationEn = String(data.destinationEn || '');
+          out.theme = THEMES[data.theme] ? data.theme : 'blue';
+          if (Array.isArray(data.notices) && data.notices.length) {
+            out.notices = data.notices.map((v) => String(v).trim()).filter(Boolean);
+          }
+          if (Array.isArray(data.stations) && data.stations.length >= 2) {
+            out.stations = data.stations.map((s) => ({
+              ja: String(s.ja || '').trim() || '駅',
+              en: String(s.en || '').trim() || 'Station',
+              dwell: Math.max(1, Number(s.dwell) || 1),
+              travel: Math.max(1, Number(s.travel) || 1),
+              guideJa: String(s.guideJa || '').trim(),
+                            guideEn: String(s.guideEn || '').trim()
+            }));
+          }
+        }
+        return out;
+      }
+
+      function applyTheme() {
+        const t = THEMES[state.data.theme] || THEMES.blue;
+        document.documentElement.style.setProperty('--theme', t.theme);
+        document.documentElement.style.setProperty('--theme-dark', t.dark);
+        document.documentElement.style.setProperty('--accent', t.accent);
+        document.documentElement.style.setProperty('--accent-soft', t.soft);
+      }
+
+      function stations() { return state.data.stations; }
+      function currentStation() { return stations()[state.currentIndex]; }
+      function nextIndex() { return (state.currentIndex + 1) % stations().length; }
+      function nextStation() { return stations()[nextIndex()]; }
+      function destJa() { return state.data.destinationJa.trim() || stations()[stations().length - 1].ja; }
+      function destEn() { return state.data.destinationEn.trim() || stations()[stations().length - 1].en; }
+
+      function showToast(text) {
+        const toast = el('toast');
+        toast.textContent = text;
+        toast.style.display = 'block';
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(() => {
+          toast.style.display = 'none';
+        }, 850);
+      }
+
+      function displayStation() {
+        if (state.phase === 'stop') return currentStation();
+        return nextStation();
+      }
+
+      function renderHeader() {
+        el('serviceType').textContent = state.currentLang === 'ja' ? state.data.serviceJa : state.data.serviceEn;
+        el('destinationText').textContent = state.currentLang === 'ja' ? `${destJa()} ゆき` : `for ${destEn()}`;
+      }
+
+      function getTimeInfo() {
+        if (state.phase === 'stop') {
+          return {
+            stop: state.remainSeconds,
+            arrival: 0
+          };
+        }
+        if (state.phase === 'move') {
+          return {
+            stop: 0,
+            arrival: state.remainSeconds
+          };
+        }
+        return {
+          stop: 0,
+          arrival: 0
+        };
+      }
+
+      function renderMain() {
+        const s = displayStation();
+        const timeInfo = getTimeInfo();
+        const stopRow = el('stopTimeRow');
+        const arrivalRow = el('arrivalTimeRow');
+        const showStop = state.phase === 'stop';
+        const showArrival = state.phase === 'move';
+
+        stopRow.classList.toggle('hidden', !showStop);
+        arrivalRow.classList.toggle('hidden', !showArrival);
+
+        if (state.currentLang === 'ja') {
+          el('leftLabel').textContent = state.phase === 'stop' ? 'ただいま' : 'まもなく';
+          el('stationSub').textContent = '';
+          el('stationMain').textContent = s.ja;
+          el('stopTimeLabel').textContent = '停車時間';
+          el('arrivalTimeLabel').textContent = '到着時間';
+          el('stopTimeValue').textContent = `${timeInfo.stop}秒`;
+          el('arrivalTimeValue').textContent = `${timeInfo.arrival}秒`;
+        } else {
+          el('leftLabel').textContent = state.phase === 'stop' ? 'Now' : 'Arriving';
+          el('stationSub').textContent = s.ja;
+          el('stationMain').textContent = s.en;
+          el('stopTimeLabel').textContent = 'Stop';
+          el('arrivalTimeLabel').textContent = 'Arrival';
+          el('stopTimeValue').textContent = `${timeInfo.stop}s`;
+          el('arrivalTimeValue').textContent = `${timeInfo.arrival}s`;
+        }
+      }
+
+      function renderGuide() {
+        const layer = el('guideLayer');
+        if (state.phase !== 'guide') {
+          layer.classList.remove('show');
+          return;
+        }
+        const s = nextStation();
+        el('guideTitle').textContent = '';
+        if (state.currentLang === 'ja') {
+          el('guideMain').textContent = `まもなく ${s.ja}`;
+          el('guideSub').textContent = s.guideJa || 'ご利用ありがとうございました。';
+        } else {
+          el('guideMain').textContent = `Arriving ${s.en}`;
+          el('guideSub').textContent = s.guideEn || 'Thank you for riding.';
+        }
+        layer.classList.add('show');
+      }
+
+      function trackMetrics() {
+        const compact = window.matchMedia('(orientation: landscape) and (max-width: 950px)').matches;
+        const trackStart = compact ? 56 : 64;
+        const rightSpace = compact ? 84 : 96;
+        const area = el('shapeLayer').getBoundingClientRect();
+        const trackEnd = Math.max(trackStart + 120, area.width - rightSpace);
+        return { trackStart, trackEnd };
+      }
+
+      function xForIndex(index) {
+        const metrics = trackMetrics();
+        if (stations().length === 1) return metrics.trackStart;
+        return metrics.trackStart + ((metrics.trackEnd - metrics.trackStart) * index / (stations().length - 1));
+      }
+
+      function renderRoute() {
+        const nameLayer = el('nameLayer');
+        const arrowLayer = el('arrowLayer');
+        const movingLayer = el('movingLayer');
+        nameLayer.innerHTML = '';
+        arrowLayer.innerHTML = '';
+        movingLayer.innerHTML = '';
+
+        stations().forEach((station, index) => {
+          const x = xForIndex(index);
+
+          const dot = document.createElement('div');
+          const active = state.phase === 'stop' && index === state.currentIndex;
+          dot.className = 'station' + (active ? ' active' : '');
+          dot.style.left = `${x}px`;
+          nameLayer.appendChild(dot);
+
+          const name = document.createElement('div');
+          const dim = index < state.currentIndex ? ' dim' : '';
+          name.className = `station-name${dim}`;
+          name.style.left = `${x}px`;
+          name.textContent = state.currentLang === 'ja' ? station.ja : station.en;
+          nameLayer.appendChild(name);
+        });
+
+        if (state.phase === 'move' || state.phase === 'guide') {
+          const startX = xForIndex(state.currentIndex);
+          const endX = xForIndex(nextIndex());
+          const midX = (startX + endX) / 2;
+
+          const move = document.createElement('div');
+          move.className = 'moving-arrow' + (state.currentLang === 'en' ? ' en' : '');
+          move.style.left = `${midX}px`;
+          movingLayer.appendChild(move);
+
+          const segCount = Math.max(1, Math.floor((endX - startX) / 58));
+          for (let i = 1; i <= segCount; i += 1) {
+            const ratio = i / (segCount + 1);
+            const ax = startX + (endX - startX) * ratio;
+            const a = document.createElement('div');
+            a.className = 'segment-arrow blink';
+            a.style.left = `${ax}px`;
+            a.style.animationDelay = `${i * 0.18}s`;
+            arrowLayer.appendChild(a);
+          }
+        }
+
+        renderGuide();
+      }
+
+      function renderTicker() {
+        const notices = state.data.notices.length ? state.data.notices : ['お知らせはありません。'];
+        const text = notices.join('　◆　');
+        el('tickerText').textContent = `${text}　◆　${text}`;
+      }
+
+      function renderControls() {
+        el('controls').classList.toggle('show', state.controlsUnlocked);
+        el('tapHint').textContent = state.controlsUnlocked ? '操作表示中' : '画面を3回タップで操作を表示';
+        el('autoBtn').textContent = state.autoEnabled ? '自動進行: ON' : '自動進行: OFF';
+      }
+
+      function renderAll() {
+        applyTheme();
+        renderHeader();
+        renderMain();
+        renderRoute();
+        renderTicker();
+        renderControls();
+      }
+
+      function setPhase(phase) {
+        state.phase = phase;
+        if (phase === 'stop') state.remainSeconds = currentStation().dwell;
+        if (phase === 'guide') state.remainSeconds = GUIDE_PHASE_SECONDS;
+        if (phase === 'move') state.remainSeconds = currentStation().travel;
+        renderAll();
+      }
+
+      function tick() {
+        if (!state.autoEnabled) return;
+        state.remainSeconds -= 1;
+        if (state.remainSeconds <= 0) {
+          if (state.phase === 'stop') {
+            setPhase('guide');
+          } else if (state.phase === 'guide') {
+            setPhase('move');
+          } else {
+            state.currentIndex = nextIndex();
+            setPhase('stop');
+          }
+        } else {
+          renderMain();
+          renderRoute();
+        }
+      }
+
+      function startPhaseTimer() {
+        clearInterval(state.phaseTimer);
+        state.phaseTimer = setInterval(tick, 1000);
+      }
+
+      function startLanguageCycle() {
+        clearTimeout(state.langTimer);
+        function loop(lang) {
+          state.currentLang = lang;
+          renderAll();
+          const ms = lang === 'ja' ? 5000 : 3000;
+          state.langTimer = setTimeout(() => loop(lang === 'ja' ? 'en' : 'ja'), ms);
+        }
+
+        loop('ja');
+      }
+
+      function handleTap(event) {
+        if (el('editor').classList.contains('show')) return;
+        if (event.target.closest('button')) return;
+        const now = Date.now();
+        state.taps = state.taps.filter((v) => now - v < 900);
+        state.taps.push(now);
+        if (!state.controlsUnlocked) {
+          showToast(`${state.taps.length}回`);
+          if (state.taps.length >= 3) {
+            state.controlsUnlocked = true;
+            state.taps = [];
+            renderControls();
+            showToast('操作を表示');
+          }
+        }
+      }
+
+      function renderEditorStations() {
+        const wrap = el('stationList');
+        wrap.innerHTML = '';
+
+        state.draft.stations.forEach((s, idx) => {
+          const row = document.createElement('div');
+          row.className = 'station-edit-row';
+
+          const ja = document.createElement('input');
+          ja.placeholder = '日本語駅名';
+          ja.value = s.ja;
+          ja.oninput = (ev) => { state.draft.stations[idx].ja = ev.target.value; };
+
+          const en = document.createElement('input');
+          en.placeholder = '英語駅名';
+          en.value = s.en;
+          en.oninput = (ev) => { state.draft.stations[idx].en = ev.target.value; };
+
+          const dwell = document.createElement('input');
+          dwell.type = 'number';
+          dwell.min = '1';
+          dwell.placeholder = '停車秒';
+          dwell.value = s.dwell;
+          dwell.oninput = (ev) => { state.draft.stations[idx].dwell = Math.max(1, Number(ev.target.value) || 1); };
+
+          const travel = document.createElement('input');
+          travel.type = 'number';
+          travel.min = '1';
+          travel.placeholder = '移動秒';
+          travel.value = s.travel;
+          travel.oninput = (ev) => { state.draft.stations[idx].travel = Math.max(1, Number(ev.target.value) || 1); };
+
+          const guideJa = document.createElement('input');
+          guideJa.placeholder = '駅案内 日本語';
+          guideJa.value = s.guideJa || '';
+          guideJa.oninput = (ev) => { state.draft.stations[idx].guideJa = ev.target.value; };
+
+          const guideEn = document.createElement('input');
+          guideEn.placeholder = '駅案内 英語';
+          guideEn.value = s.guideEn || '';
+          guideEn.oninput = (ev) => { state.draft.stations[idx].guideEn = ev.target.value; };
+
+          const up = document.createElement('button');
+          up.className = 'mini-btn move';
+          up.textContent = '↑';
+          up.onclick = () => moveStation(idx, -1);
+
+          const down = document.createElement('button');
+          down.className = 'mini-btn move';
+          down.textContent = '↓';
+          down.onclick = () => moveStation(idx, 1);
+
+          const del = document.createElement('button');
+          del.className = 'mini-btn delete';
+          del.textContent = '削除';
+          del.onclick = () => deleteStation(idx);
+
+          row.append(ja, en, dwell, travel, guideJa, guideEn, up, down, del);
+          wrap.appendChild(row);
+        });
+      }
+
+      function moveStation(index, dir) {
+        const to = index + dir;
+        if (to < 0 || to >= state.draft.stations.length) return;
+        const tmp = state.draft.stations[index];
+        state.draft.stations[index] = state.draft.stations[to];
+        state.draft.stations[to] = tmp;
+        renderEditorStations();
+      }
+
+      function deleteStation(index) {
+        if (state.draft.stations.length <= 2) {
+          alert('駅は2つ以上必要です');
+          return;
+        }
+        state.draft.stations.splice(index, 1);
+        renderEditorStations();
+      }
+
+      window.addStation = function addStation() {
+        state.draft.stations.push({
+          ja: '新しい駅',
+          en: 'New Station',
+          dwell: 3,
+          travel: 10,
+          guideJa: 'ご利用ありがとうございました。',
+          guideEn: 'Thank you for riding.'
+        });
+        renderEditorStations();
+      };
+
+      window.openEditor = function openEditor() {
+        if (!state.controlsUnlocked) return;
+        state.draft = structuredClone(state.data);
+        el('serviceJaInput').value = state.draft.serviceJa;
+        el('serviceEnInput').value = state.draft.serviceEn;
+        el('destJaInput').value = state.draft.destinationJa;
+        el('destEnInput').value = state.draft.destinationEn;
+        el('themeSelect').value = state.draft.theme;
+        el('noticeInput').value = state.draft.notices.join(' | ');
+        renderEditorStations();
+        el('editor').classList.add('show');
+      };
+
+      window.closeEditor = function closeEditor() {
+        el('editor').classList.remove('show');
+      };
+
+      window.saveEditor = function saveEditor() {
+        const newData = structuredClone(state.draft);
+        newData.serviceJa = el('serviceJaInput').value.trim() || '各駅停車';
+        newData.serviceEn = el('serviceEnInput').value.trim() || 'Local';
+        newData.destinationJa = el('destJaInput').value.trim();
+        newData.destinationEn = el('destEnInput').value.trim();
+        newData.theme = el('themeSelect').value;
+        newData.notices = el('noticeInput').value.split('|').map((v) => v.trim()).filter(Boolean);
+
+        newData.stations = newData.stations.map((s) => ({
+          ja: String(s.ja || '').trim(),
+          en: String(s.en || '').trim(),
+          dwell: Math.max(1, Number(s.dwell) || 1),
+          travel: Math.max(1, Number(s.travel) || 1),
+          guideJa: String(s.guideJa || '').trim(),
+                        guideEn: String(s.guideEn || '').trim() || String(s.guideJa || '').trim()
+        })).filter((s) => s.ja && s.en);
+
+        if (newData.stations.length < 2) {
+          alert('駅は2つ以上必要です');
+          return;
+        }
+
+        state.data = normalizeData(newData);
+        if (state.currentIndex >= stations().length) state.currentIndex = 0;
+        saveData();
+        setPhase('stop');
+        closeEditor();
+      };
+
+      window.manualAdvance = function manualAdvance() {
+        if (state.phase === 'stop') setPhase('guide');
+        else if (state.phase === 'guide') setPhase('move');
+        else { state.currentIndex = nextIndex(); setPhase('stop'); }
+      };
+
+      window.toggleAuto = function toggleAuto() {
+        state.autoEnabled = !state.autoEnabled;
+        renderControls();
+      };
+
+      window.lockControls = function lockControls() {
+        state.controlsUnlocked = false;
+        renderControls();
+      };
+
+      window.addEventListener('resize', renderAll);
+      document.getElementById('tapArea').addEventListener('click', handleTap);
+
+      function runSelfTests() {
+        console.assert(Array.isArray(stations()), 'stations should be an array');
+        console.assert(stations().length >= 2, 'stations should have at least 2 items');
+        console.assert(typeof currentStation().ja === 'string', 'current station ja should be string');
+        console.assert(typeof nextStation().en === 'string', 'next station en should be string');
+        console.assert(typeof xForIndex(0) === 'number', 'xForIndex should return a number');
+        console.assert(nextIndex() === 1, 'nextIndex should point to second station initially');
+        console.assert(trackMetrics().trackEnd > trackMetrics().trackStart, 'track width should be positive');
+        const normalized = normalizeData({ stations: [{ ja: 'A', en: 'A', dwell: 0, travel: 0 }, { ja: 'B', en: 'B', dwell: 2, travel: 3 }] });
+        console.assert(normalized.stations[0].dwell === 1, 'dwell should clamp to 1');
+        console.assert(normalized.stations[0].travel === 1, 'travel should clamp to 1');
+      }
+
+      function init() {
+        applyTheme();
+        setPhase('stop');
+        startLanguageCycle();
+        startPhaseTimer();
+        runSelfTests();
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
