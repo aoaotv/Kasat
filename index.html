@@ -1,773 +1,1045 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Train LCD Circle</title>
-<style>
-  body {
-    margin: 0;
-    background: #f2f2f2;
-    font-family: sans-serif;
-    user-select: none;
-    overflow-x: hidden;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Train LCD Complete Final</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --text: #111827;
+      --sub: #6b7280;
+      --theme: #1f33ff;
+      --theme-dark: #1626cc;
+      --accent: #ff6a00;
+      --ticker-bg: #0f1115;
+      --shadow: 0 10px 24px rgba(0,0,0,.16);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
 
-  .header {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 18px 20px;
-  }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { display: flex; flex-direction: column; }
 
-  .badge {
-    background: linear-gradient(#3d73bc, #275aa1);
-    color: white;
-    font-weight: bold;
-    font-size: 20px;
-    border-radius: 10px;
-    padding: 14px 24px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
-  }
+    .app {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto auto minmax(150px, 1fr) auto auto;
+      overflow: hidden;
+    }
 
-  .dest {
-    font-size: 28px;
-    font-weight: 700;
-    color: #444;
-  }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px 10px;
+    }
 
-  .top-shadow {
-    height: 10px;
-    box-shadow: 0 4px 14px rgba(0,0,0,.18);
-    background: transparent;
-  }
+    .badge {
+      background: linear-gradient(color-mix(in srgb, var(--theme) 78%, white), color-mix(in srgb, var(--theme-dark) 90%, black));
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: clamp(18px, 2vw, 24px);
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.25), var(--shadow);
+    }
 
-  .main {
-    display: flex;
-    justify-content: center;
-    align-items: end;
-    gap: 90px;
-    margin-top: 8px;
-    padding: 0 24px;
-  }
+    .destination {
+      min-width: 0;
+      font-size: clamp(22px, 2.5vw, 34px);
+      font-weight: 900;
+      color: #5c606a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-  .next-label {
-    font-size: 38px;
-    font-weight: 800;
-    color: #000;
-    align-self: center;
-    min-width: 120px;
-  }
+    .divider-shadow {
+      height: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.18);
+      background: transparent;
+    }
 
-  .station-wrap {
-    text-align: center;
-  }
-
-  .station-sub {
-    font-size: 34px;
-    font-weight: 700;
-    color: #666;
-    line-height: 1.1;
-    min-height: 42px;
-  }
-
-  .station-main {
-    font-size: 88px;
-    font-weight: 900;
-    line-height: 1.05;
-    color: #000;
-    min-height: 100px;
-  }
-
-  .status {
-    margin-top: 6px;
-    font-size: 28px;
-    font-weight: 800;
-    color: #333;
-    min-height: 40px;
-  }
-
-  .timer {
-    margin-top: 4px;
-    font-size: 24px;
-    color: #666;
-    min-height: 32px;
-  }
-
-  .blue-line {
-    height: 6px;
-    background: #1028ff;
-    margin-top: 8px;
-    box-shadow: 0 1px 2px rgba(0,0,0,.25);
-  }
-
-  .route-area {
-    position: relative;
-    height: 330px;
-    padding: 24px 24px 0;
-  }
-
-  .route-scroll {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 20px;
-    height: 220px;
-  }
-
-  .station-label-layer {
-    position: absolute;
-    left: 60px;
-    right: 120px;
-    bottom: 70px;
-    height: 120px;
-  }
-
-  .route-base {
-    position: absolute;
-    left: 68px;
-    right: 110px;
-    bottom: 0;
-    height: 36px;
-    background: linear-gradient(90deg, #162cff 0%, #1d12ff 40%, #1c1cff 100%);
-    box-shadow: 0 3px 8px rgba(0,0,0,.2);
-  }
-
-  .route-base::after {
-    content: "";
-    position: absolute;
-    right: -58px;
-    top: 0;
-    width: 0;
-    height: 0;
-    border-top: 18px solid transparent;
-    border-bottom: 18px solid transparent;
-    border-left: 58px solid #2323ff;
-  }
-
-  .route-head {
-    position: absolute;
-    left: 28px;
-    bottom: 0;
-    width: 48px;
-    height: 36px;
-    background: #ddd;
-    box-shadow: 0 3px 8px rgba(0,0,0,.2);
-  }
-
-  .route-current {
-    position: absolute;
-    left: 66px;
-    bottom: 0;
-    width: 42px;
-    height: 36px;
-    background: linear-gradient(#ff7300, #c53a00);
-    clip-path: polygon(0 0, 72% 0, 100% 50%, 72% 100%, 0 100%, 18% 50%);
-    box-shadow: 0 2px 6px rgba(0,0,0,.2);
-  }
-
-  .route-current.en {
-    background: linear-gradient(#4dbdff, #1b76d1);
-  }
-
-  .station-box {
-    position: absolute;
-    bottom: 8px;
-    width: 24px;
-    height: 24px;
-    background: #f4f4f4;
-    border: 2px solid #ddd;
-    transform: translateX(-50%);
-  }
-
-  .station-box.active {
-    background: #ffb27a;
-    border-color: #ff6d00;
-  }
-
-  .station-name {
-    position: absolute;
-    transform: translateX(-50%);
-    font-weight: 800;
-    color: #222;
-    white-space: nowrap;
-  }
-
-  .station-name.ja {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    font-size: 30px;
-    line-height: 1;
-    bottom: 48px;
-  }
-
-  .station-name.en {
-    bottom: 76px;
-    font-size: 22px;
-    transform: translateX(-50%) rotate(-60deg);
-    transform-origin: center bottom;
-  }
-
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    padding: 8px 16px 18px;
-    justify-content: center;
-  }
-
-  button {
-    font-size: 16px;
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: none;
-    background: #2f62b6;
-    color: #fff;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  button.secondary {
-    background: #666;
-  }
-
-  .hint {
-    text-align: center;
-    color: #555;
-    font-size: 14px;
-    padding-bottom: 10px;
-  }
-
-  .editor {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.35);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    padding: 16px;
-    z-index: 1000;
-  }
-
-  .editor.open {
-    display: flex;
-  }
-
-  .panel {
-    width: min(980px, 100%);
-    max-height: 88vh;
-    overflow: auto;
-    background: #fff;
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: 0 20px 40px rgba(0,0,0,.25);
-  }
-
-  .panel h2 {
-    margin: 0 0 12px;
-  }
-
-  .editor-row {
-    display: grid;
-    grid-template-columns: 1.2fr 1.2fr .8fr .8fr auto auto auto;
-    gap: 8px;
-    margin-bottom: 8px;
-    align-items: center;
-  }
-
-  .editor-row input {
-    font-size: 16px;
-    padding: 10px;
-  }
-
-  .mini-btn {
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: none;
-    background: #2f62b6;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  .mini-btn.delete {
-    background: #c43b3b;
-  }
-
-  .mini-btn.move {
-    background: #666;
-  }
-
-  .panel-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-
-  .tap-toast {
-    position: fixed;
-    left: 50%;
-    bottom: 52px;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,.75);
-    color: white;
-    padding: 10px 14px;
-    border-radius: 999px;
-    font-size: 14px;
-    z-index: 2000;
-    display: none;
-  }
-
-  .notice-wrap {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 40px;
-    background: #111;
-    color: #fff;
-    overflow: hidden;
-    border-top: 3px solid #1028ff;
-    z-index: 900;
-  }
-
-  .notice-track {
-    white-space: nowrap;
-    display: inline-block;
-    padding-left: 100%;
-    animation: marquee 18s linear infinite;
-    line-height: 40px;
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  @keyframes marquee {
-    from { transform: translateX(0); }
-    to { transform: translateX(-100%); }
-  }
-
-  @media (max-width: 700px) {
     .main {
-      gap: 36px;
+      display: grid;
+      grid-template-columns: minmax(110px, 18%) 1fr;
+      align-items: end;
+      gap: 12px;
+      padding: 10px 18px 4px;
     }
-    .next-label {
-      font-size: 28px;
-      min-width: 84px;
+
+    .left-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.2em;
+      text-align: center;
+      font-size: clamp(28px, 3vw, 52px);
+      line-height: 1.05;
+      font-weight: 900;
+      color: #111;
     }
+
+    .station-wrap { min-width: 0; text-align: center; }
     .station-sub {
-      font-size: 22px;
+      min-height: 1.2em;
+      color: var(--sub);
+      font-weight: 800;
+      line-height: 1.05;
+      font-size: clamp(20px, 2.2vw, 34px);
     }
     .station-main {
-      font-size: 60px;
-      min-height: 70px;
+      min-height: 1.2em;
+      color: #111;
+      font-weight: 900;
+      line-height: 1.03;
+      letter-spacing: .01em;
+      font-size: clamp(52px, 6vw, 100px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .status {
-      font-size: 22px;
+
+    .blue-line {
+      height: 6px;
+      background: var(--theme);
+      box-shadow: 0 1px 2px rgba(0,0,0,.22);
+      margin-top: 6px;
     }
-    .timer {
-      font-size: 18px;
-    }
-    .dest {
-      font-size: 22px;
-    }
-    .badge {
-      font-size: 18px;
-      padding: 12px 18px;
-    }
+
     .route-area {
-      height: 300px;
+      position: relative;
+      min-height: 150px;
+      overflow: hidden;
+      padding: 0 14px 4px;
     }
-    .station-name.ja {
-      font-size: 22px;
+
+    .route-inner { position: absolute; inset: 0; }
+    .layer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      pointer-events: none;
     }
-    .station-name.en {
+
+    .shape-layer { top: 86px; height: 36px; z-index: 1; }
+    .arrow-layer, .moving-layer { top: 86px; height: 36px; z-index: 2; }
+    .name-layer { top: 6px; height: 80px; z-index: 3; }
+
+    .guide-layer {
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity .25s ease;
+      z-index: 5;
+      pointer-events: none;
+      background: rgba(243,244,246,.96);
+      padding: 12px 18px 12px;
+    }
+    .guide-layer.show { opacity: 1; }
+
+    .route-guide {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .route-guide-title { font-size: 0; margin: 0; }
+    .route-guide-main {
+      margin-top: 4px;
+      color: #111;
+      font-size: clamp(42px, 5vw, 86px);
+      line-height: 1.05;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 92%;
+    }
+    .route-guide-sub {
+      margin-top: 8px;
+      color: var(--sub);
+      font-size: clamp(18px, 1.9vw, 30px);
+      line-height: 1.08;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 92%;
+    }
+
+    .track-head {
+      position: absolute;
+      left: 26px;
+      top: 0;
+      width: 46px;
+      height: 36px;
+      background: #d7d7da;
+      box-shadow: var(--shadow);
+    }
+    .track-base {
+      position: absolute;
+      left: 64px;
+      right: 96px;
+      top: 0;
+      height: 36px;
+      background: linear-gradient(90deg, var(--theme-dark), var(--theme));
+      box-shadow: var(--shadow);
+    }
+    .track-base::after {
+      content: "";
+      position: absolute;
+      right: -56px;
+      top: 0;
+      border-top: 18px solid transparent;
+      border-bottom: 18px solid transparent;
+      border-left: 56px solid var(--theme);
+    }
+
+    .station {
+      position: absolute;
+      top: 18px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #c9ccd3;
+      transform: translateX(-50%);
+      transition: all .25s ease;
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+    .station.active {
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent), 0 0 22px var(--accent);
+    }
+
+    .station-name {
+      position: absolute;
+      left: 0;
+      top: -6px;
+      transform: translateX(-50%);
+      font-weight: 900;
+      color: #24262a;
+      white-space: nowrap;
+      writing-mode: horizontal-tb;
+      font-size: clamp(14px, 1.2vw, 20px);
+      line-height: 1.1;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .station-name.dim { color: #cbced6; }
+
+    .moving-arrow {
+      position: absolute;
+      top: 5px;
+      width: 20px;
+      height: 20px;
+      transform: translateX(-50%);
+      clip-path: polygon(0 0, 68% 0, 100% 50%, 68% 100%, 0 100%, 20% 50%);
+      background: linear-gradient(#ff7d21, #c74600);
+      box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    }
+    .moving-arrow.en {
+      background: linear-gradient(#59bcff, #1b79d5);
+    }
+
+    .segment-arrow {
+      position: absolute;
+      top: 10px;
+      width: 10px;
+      height: 10px;
+      transform: translateX(-50%);
+      background: var(--accent);
+      clip-path: polygon(0 10%, 62% 10%, 62% 0, 100% 50%, 62% 100%, 62% 90%, 0 90%, 18% 50%);
+      opacity: 0;
+    }
+    .segment-arrow.blink { animation: blink 1s steps(1, end) infinite; }
+    @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+    .controls {
+      display: none;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 6px 14px 10px;
+    }
+    .controls.show { display: flex; }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: 900;
+      color: #fff;
+      background: color-mix(in srgb, var(--theme) 78%, black);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+    }
+    button.secondary { background: #666; }
+    button.warn { background: #c2410c; }
+
+    .tap-hint {
+      text-align: center;
+      color: #5f6470;
+      font-size: 13px;
+      padding: 0 0 8px;
+    }
+
+    .ticker-wrap {
+      flex-shrink: 0;
+      height: 44px;
+      background: var(--ticker-bg);
+      color: #fff;
+      overflow: hidden;
+      border-top: 3px solid var(--theme);
+      padding-bottom: var(--safe-bottom);
+    }
+    .ticker {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      line-height: 44px;
+      font-size: clamp(16px, 1.5vw, 22px);
+      font-weight: 900;
+      animation: ticker 18s linear infinite;
+    }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+    .editor {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 50;
+      background: rgba(0,0,0,.38);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .editor.show { display: flex; }
+
+    .panel {
+      width: min(1180px, 100%);
+      max-height: 88vh;
+      overflow: auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 22px 50px rgba(0,0,0,.26);
+      padding: 18px;
+    }
+    .panel h2 { margin: 0 0 12px; }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .field { display: grid; gap: 6px; }
+    .field label {
+      font-size: 14px;
+      font-weight: 800;
+      color: #4b5563;
+    }
+    .field input, .field textarea, .field select, .station-edit-row input {
+      width: 100%;
       font-size: 16px;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
     }
-    .editor-row {
-      grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    .theme-preview {
+      height: 18px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--theme-dark), var(--theme));
+      border: 1px solid #d1d5db;
     }
-  }
-</style>
+
+    .station-edit-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr .72fr .72fr 1.2fr 1.2fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .mini-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #fff;
+      background: #4b5563;
+      cursor: pointer;
+    }
+    .mini-btn.delete { background: #b91c1c; }
+    .mini-btn.move { background: #6b7280; }
+    .panel-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(54px + var(--safe-bottom));
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.82);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 10px 14px;
+      border-radius: 999px;
+      z-index: 90;
+      display: none;
+    }
+
+    @media (orientation: landscape) and (max-width: 950px) {
+      .app { grid-template-rows: auto auto auto minmax(116px, 1fr) auto auto; }
+      .header { padding: 10px 14px 8px; }
+      .badge { padding: 10px 16px; font-size: 16px; }
+      .destination { font-size: 20px; }
+      .main { grid-template-columns: 90px 1fr; padding: 6px 14px 0; }
+      .left-label { font-size: 22px; }
+      .station-sub { font-size: 18px; min-height: 1.1em; }
+      .station-main { font-size: 46px; min-height: 1.1em; }
+      .blue-line { margin-top: 4px; }
+      .route-area { min-height: 116px; padding: 0 10px 2px; }
+      .shape-layer, .arrow-layer, .moving-layer { top: 56px; }
+      .name-layer { top: 8px; height: 64px; }
+      .guide-layer { inset: 0; padding: 8px 12px 10px; }
+      .route-guide-main { font-size: 32px; max-width: 94%; }
+      .route-guide-sub { font-size: 14px; max-width: 94%; }
+      .track-head { left: 18px; width: 40px; height: 30px; }
+      .track-base { left: 56px; right: 84px; height: 30px; }
+      .track-base::after { right: -48px; border-top-width: 15px; border-bottom-width: 15px; border-left-width: 48px; }
+      .station { width: 12px; height: 12px; top: 9px; }
+      .station-name { font-size: 12px; top: 0; max-width: 88px; }
+      .moving-arrow { width: 18px; height: 18px; top: 6px; }
+      .segment-arrow { width: 8px; height: 8px; top: 11px; }
+      .controls button { font-size: 13px; padding: 8px 10px; }
+      .ticker-wrap { height: 36px; }
+      .ticker { line-height: 36px; font-size: 14px; }
+      .tap-hint { font-size: 11px; padding-bottom: 4px; }
+      .station-edit-row { grid-template-columns: 1fr 1fr .8fr .8fr 1fr 1fr auto auto auto; }
+    }
+
+    @media (max-width: 640px) {
+      .grid2 { grid-template-columns: 1fr; }
+      .station-edit-row { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body id="tapArea">
+  <div class="app">
+    <div class="header">
+      <div class="badge" id="serviceType">各駅停車</div>
+      <div class="destination" id="destinationText">東京 ゆき</div>
+    </div>
 
-  <div class="header">
-    <div class="badge" id="serviceType">環状線</div>
-    <div class="dest" id="destinationText">外回り</div>
-  </div>
+    <div class="divider-shadow"></div>
 
-  <div class="top-shadow"></div>
+    <div class="main">
+      <div class="left-label" id="leftLabel">次は</div>
+      <div class="station-wrap">
+        <div class="station-sub" id="stationSub"></div>
+        <div class="station-main" id="stationMain">静岡</div>
+      </div>
+    </div>
 
-  <div class="main">
-    <div class="next-label" id="nextLabel">次は</div>
-    <div class="station-wrap">
-      <div class="station-sub" id="stationSub"></div>
-      <div class="station-main" id="stationMain">静岡</div>
-      <div class="status" id="statusText">停車中</div>
-      <div class="timer" id="timerText">あと 10秒</div>
+    <div class="blue-line"></div>
+
+    <div class="route-area">
+      <div class="route-inner">
+        <div class="layer shape-layer" id="shapeLayer">
+          <div class="track-head"></div>
+          <div class="track-base"></div>
+        </div>
+        <div class="layer arrow-layer" id="arrowLayer"></div>
+        <div class="layer moving-layer" id="movingLayer"></div>
+        <div class="layer name-layer" id="nameLayer"></div>
+        <div class="layer guide-layer" id="guideLayer">
+          <div class="route-guide">
+            <div class="route-guide-title" id="guideTitle"></div>
+            <div class="route-guide-main" id="guideMain">まもなく 静岡</div>
+            <div class="route-guide-sub" id="guideSub">Shizuoka</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button onclick="manualAdvance()">次へ</button>
+      <button onclick="toggleAuto()" class="secondary" id="autoBtn">自動進行: ON</button>
+      <button onclick="openEditor()">設定</button>
+      <button onclick="lockControls()" class="warn">操作を隠す</button>
+    </div>
+
+    <div class="tap-hint" id="tapHint">画面を3回タップで操作を表示</div>
+
+    <div class="ticker-wrap">
+      <div class="ticker" id="tickerText">お知らせを読み込み中です。</div>
     </div>
   </div>
-
-  <div class="blue-line"></div>
-
-  <div class="route-area">
-    <div class="route-scroll">
-      <div class="station-label-layer" id="stationLabelLayer"></div>
-      <div class="route-head"></div>
-      <div class="route-current" id="routeCurrent"></div>
-      <div class="route-base"></div>
-      <div id="stationBoxLayer"></div>
-    </div>
-  </div>
-
-  <div class="controls">
-    <button onclick="nextPhase()">次へ進める</button>
-    <button onclick="toggleLanguage()" class="secondary">言語切替</button>
-    <button onclick="toggleAuto()" class="secondary" id="autoBtn">自動切替: ON</button>
-    <button onclick="openEditor()">駅編集</button>
-    <button onclick="editNotice()" class="secondary">お知らせ変更</button>
-  </div>
-
-  <div class="hint">画面を3回タップすると駅編集画面が開きます</div>
 
   <div class="editor" id="editor">
     <div class="panel">
-      <h2>駅を編集</h2>
-      <p>日本語名 / 英語名 / 滞在秒 / 移動秒</p>
-      <div id="editorList"></div>
+      <h2>列車LCD設定</h2>
+
+      <div class="grid2">
+        <div class="field">
+          <label>種別 日本語</label>
+          <input id="serviceJaInput" />
+        </div>
+        <div class="field">
+          <label>種別 英語</label>
+          <input id="serviceEnInput" />
+        </div>
+        <div class="field">
+          <label>行先 日本語（空なら終点）</label>
+          <input id="destJaInput" />
+        </div>
+        <div class="field">
+          <label>行先 英語（空なら終点）</label>
+          <input id="destEnInput" />
+        </div>
+        <div class="field">
+          <label>テーマ色</label>
+          <select id="themeSelect">
+            <option value="blue">ブルー</option>
+            <option value="green">グリーン</option>
+            <option value="red">レッド</option>
+            <option value="orange">オレンジ</option>
+            <option value="purple">パープル</option>
+            <option value="black">ブラック</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>プレビュー</label>
+          <div class="theme-preview"></div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:14px;">
+        <label>お知らせ（| で複数登録）</label>
+        <textarea id="noticeInput" rows="3"></textarea>
+      </div>
+
+      <div id="stationList"></div>
+
       <div class="panel-actions">
         <button onclick="addStation()">駅を追加</button>
-        <button class="secondary" onclick="saveEditor()">保存</button>
-        <button class="secondary" onclick="closeEditor()">閉じる</button>
+        <button onclick="saveEditor()" class="secondary">保存</button>
+        <button onclick="closeEditor()" class="secondary">閉じる</button>
       </div>
     </div>
   </div>
 
-  <div class="tap-toast" id="tapToast"></div>
+  <div class="toast" id="toast"></div>
 
-  <div class="notice-wrap">
-    <div class="notice-track" id="noticeText">
-      この電車は環状線です。駆け込み乗車はおやめください。足元にご注意ください。
-    </div>
-  </div>
+  <script>
+    (() => {
+      const STORAGE_KEY = 'train_lcd_complete_final_v1';
+      const NORMAL_PHASE_SECONDS = 8;
+      const GUIDE_PHASE_SECONDS = 5;
 
-<script>
-  let stations = [
-    { ja: "東京", en: "Tokyo", dwell: 8, travel: 6 },
-    { ja: "上野", en: "Ueno", dwell: 7, travel: 5 },
-    { ja: "秋葉原", en: "Akihabara", dwell: 8, travel: 4 },
-    { ja: "神田", en: "Kanda", dwell: 6, travel: 5 },
-    { ja: "東京", en: "Tokyo", dwell: 8, travel: 6 }
-  ];
+      const THEMES = {
+        blue:   { theme: '#1f33ff', dark: '#1626cc', accent: '#ff6a00', soft: '#ffd4b3' },
+        green:  { theme: '#00a35a', dark: '#007943', accent: '#ff8a00', soft: '#ffd8ae' },
+        red:    { theme: '#d82a2a', dark: '#a91515', accent: '#ff9800', soft: '#ffe1bc' },
+        orange: { theme: '#f27a00', dark: '#c25d00', accent: '#0d6efd', soft: '#b8d4ff' },
+        purple: { theme: '#7a3cff', dark: '#5925c7', accent: '#ff8a00', soft: '#ffd8ae' },
+        black:  { theme: '#30343b', dark: '#111317', accent: '#ff7a00', soft: '#ffd4b3' }
+      };
 
-  let currentIndex = 1;
-  let language = "ja";
-  let autoMode = true;
-  let tapTimes = [];
-  let draftStations = [];
+      const defaultData = {
+        serviceJa: '各駅停車',
+        serviceEn: 'Local',
+        destinationJa: '',
+        destinationEn: '',
+        theme: 'blue',
+        notices: [
+          'この電車は各駅に停車します。',
+          '駆け込み乗車はおやめください。',
+          '携帯電話はマナーモードに設定してください。'
+        ],
+        stations: [
+          { ja: '掛川', en: 'Kakegawa', dwell: 3, travel: 10, guideJa: 'お出口は左側です。', guideEn: 'Doors will open on the left.' },
+          { ja: '静岡', en: 'Shizuoka', dwell: 5, travel: 12, guideJa: '東海道線はお乗り換えです。', guideEn: 'Transfer for the Tokaido Line.' },
+          { ja: '新富士', en: 'Shin-Fuji', dwell: 3, travel: 9, guideJa: 'お出口は右側です。', guideEn: 'Doors will open on the right.' },
+          { ja: '三島', en: 'Mishima', dwell: 4, travel: 11, guideJa: '伊豆箱根鉄道はお乗り換えです。', guideEn: 'Transfer for Izuhakone Railway.' }
+        ]
+      };
 
-  let phase = "dwell"; // dwell or travel
-  let remaining = stations[currentIndex].dwell;
-  let intervalId = null;
+      const state = {
+        data: loadData(),
+        currentIndex: 0,
+        phase: 'stop', // stop | guide | move
+        remainSeconds: 0,
+        autoEnabled: true,
+        controlsUnlocked: false,
+        currentLang: 'ja',
+        draft: null,
+        taps: [],
+        phaseTimer: null,
+        langTimer: null
+      };
 
-  function getCurrentStation() {
-    return stations[currentIndex];
-  }
+      const el = (id) => document.getElementById(id);
 
-  function getNextIndex() {
-    return (currentIndex + 1) % stations.length;
-  }
-
-  function getNextStation() {
-    return stations[getNextIndex()];
-  }
-
-  function getDestinationText() {
-    return language === "ja" ? "環状線 外回り" : "Circle Line Outer Loop";
-  }
-
-  function renderMain() {
-    const current = getCurrentStation();
-    const next = getNextStation();
-
-    document.getElementById("serviceType").textContent = language === "ja" ? "環状線" : "Circle";
-    document.getElementById("destinationText").textContent = getDestinationText();
-    document.getElementById("routeCurrent").classList.toggle("en", language === "en");
-
-    if (phase === "dwell") {
-      document.getElementById("nextLabel").textContent = language === "ja" ? "ただいま" : "Now";
-      document.getElementById("stationMain").textContent = language === "ja" ? current.ja : current.en;
-      document.getElementById("stationSub").textContent = language === "ja" ? "" : current.ja;
-      document.getElementById("statusText").textContent = language === "ja" ? "停車中" : "Stopped";
-      document.getElementById("timerText").textContent = language === "ja"
-        ? `発車まで あと ${remaining}秒`
-        : `Departs in ${remaining}s`;
-    } else {
-      document.getElementById("nextLabel").textContent = language === "ja" ? "次は" : "Next";
-      document.getElementById("stationMain").textContent = language === "ja" ? next.ja : next.en;
-      document.getElementById("stationSub").textContent = language === "ja" ? "" : next.ja;
-      document.getElementById("statusText").textContent = language === "ja" ? "走行中" : "Moving";
-      document.getElementById("timerText").textContent = language === "ja"
-        ? `到着まで あと ${remaining}秒`
-        : `Arrives in ${remaining}s`;
-    }
-  }
-
-  function renderRoute() {
-    const labelLayer = document.getElementById("stationLabelLayer");
-    const boxLayer = document.getElementById("stationBoxLayer");
-
-    labelLayer.innerHTML = "";
-    boxLayer.innerHTML = "";
-
-    const count = stations.length;
-    const start = 68;
-    const endOffset = 110;
-    const lineWidth = window.innerWidth - start - endOffset;
-    const usable = Math.max(120, lineWidth);
-
-    stations.forEach((station, index) => {
-      const x = start + (usable * index / Math.max(1, count - 1));
-
-      const box = document.createElement("div");
-      box.className = "station-box" + (index === currentIndex ? " active" : "");
-      box.style.left = x + "px";
-      boxLayer.appendChild(box);
-
-      const name = document.createElement("div");
-      name.className = "station-name " + language;
-      name.style.left = x + "px";
-      name.textContent = language === "ja" ? station.ja : station.en;
-      labelLayer.appendChild(name);
-    });
-  }
-
-  function renderAll() {
-    if (stations.length < 2) return;
-    if (currentIndex >= stations.length) currentIndex = 0;
-    renderMain();
-    renderRoute();
-  }
-
-  function tick() {
-    if (!autoMode) return;
-
-    remaining--;
-    if (remaining <= 0) {
-      if (phase === "dwell") {
-        phase = "travel";
-        remaining = getCurrentStation().travel;
-      } else {
-        currentIndex = getNextIndex();
-        phase = "dwell";
-        remaining = getCurrentStation().dwell;
-        language = language === "ja" ? "en" : "ja";
+      function loadData() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return structuredClone(defaultData);
+          return normalizeData(JSON.parse(raw));
+        } catch {
+          return structuredClone(defaultData);
+        }
       }
-    }
-    renderAll();
-  }
 
-  function startAuto() {
-    stopAuto();
-    intervalId = setInterval(tick, 1000);
-  }
+      function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      }
 
-  function stopAuto() {
-    if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-  }
+      function normalizeData(data) {
+        const out = structuredClone(defaultData);
+        if (data && typeof data === 'object') {
+          out.serviceJa = String(data.serviceJa || out.serviceJa);
+          out.serviceEn = String(data.serviceEn || out.serviceEn);
+          out.destinationJa = String(data.destinationJa || '');
+          out.destinationEn = String(data.destinationEn || '');
+          out.theme = THEMES[data.theme] ? data.theme : 'blue';
+          if (Array.isArray(data.notices) && data.notices.length) {
+            out.notices = data.notices.map((v) => String(v).trim()).filter(Boolean);
+          }
+          if (Array.isArray(data.stations) && data.stations.length >= 2) {
+            out.stations = data.stations.map((s) => ({
+              ja: String(s.ja || '').trim() || '駅',
+              en: String(s.en || '').trim() || 'Station',
+              dwell: Math.max(1, Number(s.dwell) || 1),
+              travel: Math.max(1, Number(s.travel) || 1),
+              guideJa: String(s.guideJa || '').trim(),
+                            guideEn: String(s.guideEn || '').trim()
+            }));
+          }
+        }
+        return out;
+      }
 
-  function toggleAuto() {
-    autoMode = !autoMode;
-    document.getElementById("autoBtn").textContent = "自動切替: " + (autoMode ? "ON" : "OFF");
-    if (autoMode) startAuto();
-    else stopAuto();
-  }
+      function applyTheme() {
+        const t = THEMES[state.data.theme] || THEMES.blue;
+        document.documentElement.style.setProperty('--theme', t.theme);
+        document.documentElement.style.setProperty('--theme-dark', t.dark);
+        document.documentElement.style.setProperty('--accent', t.accent);
+        document.documentElement.style.setProperty('--accent-soft', t.soft);
+      }
 
-  function toggleLanguage() {
-    language = language === "ja" ? "en" : "ja";
-    renderAll();
-  }
+      function stations() { return state.data.stations; }
+      function currentStation() { return stations()[state.currentIndex]; }
+      function nextIndex() { return (state.currentIndex + 1) % stations().length; }
+      function nextStation() { return stations()[nextIndex()]; }
+      function destJa() { return state.data.destinationJa.trim() || stations()[stations().length - 1].ja; }
+      function destEn() { return state.data.destinationEn.trim() || stations()[stations().length - 1].en; }
 
-  function nextPhase() {
-    if (phase === "dwell") {
-      phase = "travel";
-      remaining = getCurrentStation().travel;
-    } else {
-      currentIndex = getNextIndex();
-      phase = "dwell";
-      remaining = getCurrentStation().dwell;
-    }
-    renderAll();
-  }
+      function showToast(text) {
+        const toast = el('toast');
+        toast.textContent = text;
+        toast.style.display = 'block';
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(() => {
+          toast.style.display = 'none';
+        }, 850);
+      }
 
-  function showToast(text) {
-    const toast = document.getElementById("tapToast");
-    toast.textContent = text;
-    toast.style.display = "block";
-    clearTimeout(showToast._timer);
-    showToast._timer = setTimeout(() => {
-      toast.style.display = "none";
-    }, 900);
-  }
+      function displayStation() {
+        if (state.phase === 'stop') return currentStation();
+        return nextStation();
+      }
 
-  function handleTap() {
-    const now = Date.now();
-    tapTimes = tapTimes.filter(t => now - t < 900);
-    tapTimes.push(now);
+      function renderHeader() {
+        el('serviceType').textContent = state.currentLang === 'ja' ? state.data.serviceJa : state.data.serviceEn;
+        el('destinationText').textContent = state.currentLang === 'ja' ? `${destJa()} ゆき` : `for ${destEn()}`;
+      }
 
-    if (tapTimes.length === 1) showToast("1回");
-    if (tapTimes.length === 2) showToast("2回");
-    if (tapTimes.length >= 3) {
-      tapTimes = [];
-      openEditor();
-    }
-  }
+      function renderMain() {
+        const s = displayStation();
+        if (state.currentLang === 'ja') {
+          el('leftLabel').textContent = state.phase === 'stop' ? '停車中' : '次は';
+          el('stationSub').textContent = '';
+          el('stationMain').textContent = s.ja;
+        } else {
+          el('leftLabel').textContent = state.phase === 'stop' ? 'Now Stopping' : 'Next';
+          el('stationSub').textContent = s.ja;
+          el('stationMain').textContent = s.en;
+        }
+      }
 
-  document.getElementById("tapArea").addEventListener("click", (e) => {
-    const editorOpen = document.getElementById("editor").classList.contains("open");
-    if (editorOpen) return;
-    if (e.target.tagName === "BUTTON") return;
-    handleTap();
-  });
+      function renderGuide() {
+        const layer = el('guideLayer');
+        if (state.phase !== 'guide') {
+          layer.classList.remove('show');
+          return;
+        }
+        const s = nextStation();
+        el('guideTitle').textContent = '';
+        if (state.currentLang === 'ja') {
+          el('guideMain').textContent = s.ja;
+          el('guideSub').textContent = s.guideJa || 'ご利用ありがとうございました。';
+        } else {
+          el('guideMain').textContent = s.en;
+          el('guideSub').textContent = s.guideEn || 'Thank you for riding.';
+        }
+        layer.classList.add('show');
+      }
 
-  function openEditor() {
-    draftStations = JSON.parse(JSON.stringify(stations));
-    renderEditor();
-    document.getElementById("editor").classList.add("open");
-  }
+      function trackMetrics() {
+        const compact = window.matchMedia('(orientation: landscape) and (max-width: 950px)').matches;
+        const trackStart = compact ? 56 : 64;
+        const rightSpace = compact ? 84 : 96;
+        const area = el('shapeLayer').getBoundingClientRect();
+        const trackEnd = Math.max(trackStart + 120, area.width - rightSpace);
+        return { trackStart, trackEnd };
+      }
 
-  function closeEditor() {
-    document.getElementById("editor").classList.remove("open");
-  }
+      function xForIndex(index) {
+        const metrics = trackMetrics();
+        if (stations().length === 1) return metrics.trackStart;
+        return metrics.trackStart + ((metrics.trackEnd - metrics.trackStart) * index / (stations().length - 1));
+      }
 
-  function renderEditor() {
-    const list = document.getElementById("editorList");
-    list.innerHTML = "";
+      function renderRoute() {
+        const nameLayer = el('nameLayer');
+        const arrowLayer = el('arrowLayer');
+        const movingLayer = el('movingLayer');
+        nameLayer.innerHTML = '';
+        arrowLayer.innerHTML = '';
+        movingLayer.innerHTML = '';
 
-    draftStations.forEach((station, index) => {
-      const row = document.createElement("div");
-      row.className = "editor-row";
+        stations().forEach((station, index) => {
+          const x = xForIndex(index);
 
-      const ja = document.createElement("input");
-      ja.value = station.ja;
-      ja.placeholder = "日本語駅名";
-      ja.oninput = (e) => draftStations[index].ja = e.target.value;
+          const dot = document.createElement('div');
+          const active = state.phase === 'stop' && index === state.currentIndex;
+          dot.className = 'station' + (active ? ' active' : '');
+          dot.style.left = `${x}px`;
+          nameLayer.appendChild(dot);
 
-      const en = document.createElement("input");
-      en.value = station.en;
-      en.placeholder = "英語駅名";
-      en.oninput = (e) => draftStations[index].en = e.target.value;
+          const name = document.createElement('div');
+          const dim = index < state.currentIndex ? ' dim' : '';
+          name.className = `station-name${dim}`;
+          name.style.left = `${x}px`;
+          name.textContent = state.currentLang === 'ja' ? station.ja : station.en;
+          nameLayer.appendChild(name);
+        });
 
-      const dwell = document.createElement("input");
-      dwell.type = "number";
-      dwell.min = "1";
-      dwell.value = station.dwell;
-      dwell.placeholder = "滞在秒";
-      dwell.oninput = (e) => draftStations[index].dwell = Number(e.target.value);
+        if (state.phase === 'move' || state.phase === 'guide') {
+          const startX = xForIndex(state.currentIndex);
+          const endX = xForIndex(nextIndex());
+          const midX = (startX + endX) / 2;
 
-      const travel = document.createElement("input");
-      travel.type = "number";
-      travel.min = "1";
-      travel.value = station.travel;
-      travel.placeholder = "移動秒";
-      travel.oninput = (e) => draftStations[index].travel = Number(e.target.value);
+          const move = document.createElement('div');
+          move.className = 'moving-arrow' + (state.currentLang === 'en' ? ' en' : '');
+          move.style.left = `${midX}px`;
+          movingLayer.appendChild(move);
 
-      const up = document.createElement("button");
-      up.className = "mini-btn move";
-      up.textContent = "↑";
-      up.onclick = () => moveStation(index, -1);
+          const segCount = Math.max(1, Math.floor((endX - startX) / 58));
+          for (let i = 1; i <= segCount; i += 1) {
+            const ratio = i / (segCount + 1);
+            const ax = startX + (endX - startX) * ratio;
+            const a = document.createElement('div');
+            a.className = 'segment-arrow blink';
+            a.style.left = `${ax}px`;
+            a.style.animationDelay = `${i * 0.18}s`;
+            arrowLayer.appendChild(a);
+          }
+        }
 
-      const down = document.createElement("button");
-      down.className = "mini-btn move";
-      down.textContent = "↓";
-      down.onclick = () => moveStation(index, 1);
+        renderGuide();
+      }
 
-      const del = document.createElement("button");
-      del.className = "mini-btn delete";
-      del.textContent = "削除";
-      del.onclick = () => deleteStation(index);
+      function renderTicker() {
+        const notices = state.data.notices.length ? state.data.notices : ['お知らせはありません。'];
+        const text = notices.join('　◆　');
+        el('tickerText').textContent = `${text}　◆　${text}`;
+      }
 
-      row.appendChild(ja);
-      row.appendChild(en);
-      row.appendChild(dwell);
-      row.appendChild(travel);
-      row.appendChild(up);
-      row.appendChild(down);
-      row.appendChild(del);
-      list.appendChild(row);
-    });
-  }
+      function renderControls() {
+        el('controls').classList.toggle('show', state.controlsUnlocked);
+        el('tapHint').textContent = state.controlsUnlocked ? '操作表示中' : '画面を3回タップで操作を表示';
+        el('autoBtn').textContent = state.autoEnabled ? '自動進行: ON' : '自動進行: OFF';
+      }
 
-  function moveStation(index, dir) {
-    const newIndex = index + dir;
-    if (newIndex < 0 || newIndex >= draftStations.length) return;
-    const temp = draftStations[index];
-    draftStations[index] = draftStations[newIndex];
-    draftStations[newIndex] = temp;
-    renderEditor();
-  }
+      function renderAll() {
+        applyTheme();
+        renderHeader();
+        renderMain();
+        renderRoute();
+        renderTicker();
+        renderControls();
+      }
 
-  function deleteStation(index) {
-    if (draftStations.length <= 2) {
-      alert("駅は2つ以上必要です");
-      return;
-    }
-    draftStations.splice(index, 1);
-    renderEditor();
-  }
+      function setPhase(phase) {
+        state.phase = phase;
+        if (phase === 'stop') state.remainSeconds = currentStation().dwell;
+        if (phase === 'guide') state.remainSeconds = GUIDE_PHASE_SECONDS;
+        if (phase === 'move') state.remainSeconds = currentStation().travel;
+        renderAll();
+      }
 
-  function addStation() {
-    draftStations.push({
-      ja: "新しい駅",
-      en: "New Station",
-      dwell: 8,
-      travel: 6
-    });
-    renderEditor();
-  }
+      function tick() {
+        if (!state.autoEnabled) return;
+        state.remainSeconds -= 1;
+        if (state.remainSeconds <= 0) {
+          if (state.phase === 'stop') {
+            setPhase('guide');
+          } else if (state.phase === 'guide') {
+            setPhase('move');
+          } else {
+            state.currentIndex = nextIndex();
+            setPhase('stop');
+          }
+        } else {
+          renderRoute();
+        }
+      }
 
-  function saveEditor() {
-    const filtered = draftStations
-      .filter(s => s.ja && s.en)
-      .map(s => ({
-        ja: s.ja.trim(),
-        en: s.en.trim(),
-        dwell: Math.max(1, Number(s.dwell) || 1),
-        travel: Math.max(1, Number(s.travel) || 1)
-      }));
+      function startPhaseTimer() {
+        clearInterval(state.phaseTimer);
+        state.phaseTimer = setInterval(tick, 1000);
+      }
 
-    if (filtered.length < 2) {
-      alert("駅は2つ以上必要です");
-      return;
-    }
+      function startLanguageCycle() {
+        clearTimeout(state.langTimer);
+        function loop(lang) {
+          state.currentLang = lang;
+          renderAll();
+          const ms = lang === 'ja' ? 5000 : 3000;
+          state.langTimer = setTimeout(() => loop(lang === 'ja' ? 'en' : 'ja'), ms);
+        }
 
-    stations = filtered;
-    currentIndex = Math.min(currentIndex, stations.length - 1);
-    if (phase === "dwell") {
-      remaining = stations[currentIndex].dwell;
-    } else {
-      remaining = stations[currentIndex].travel;
-    }
-    renderAll();
-    closeEditor();
-  }
+        loop('ja');
+      }
 
-  function editNotice() {
-    const current = document.getElementById("noticeText").textContent.trim();
-    const text = prompt("お知らせ文を入力", current);
-    if (text !== null && text.trim() !== "") {
-      document.getElementById("noticeText").textContent = text;
-    }
-  }
+      function handleTap(event) {
+        if (el('editor').classList.contains('show')) return;
+        if (event.target.closest('button')) return;
+        const now = Date.now();
+        state.taps = state.taps.filter((v) => now - v < 900);
+        state.taps.push(now);
+        if (!state.controlsUnlocked) {
+          showToast(`${state.taps.length}回`);
+          if (state.taps.length >= 3) {
+            state.controlsUnlocked = true;
+            state.taps = [];
+            renderControls();
+            showToast('操作を表示');
+          }
+        }
+      }
 
-  window.addEventListener("resize", renderRoute);
+      function renderEditorStations() {
+        const wrap = el('stationList');
+        wrap.innerHTML = '';
 
-  renderAll();
-  startAuto();
-</script>
+        state.draft.stations.forEach((s, idx) => {
+          const row = document.createElement('div');
+          row.className = 'station-edit-row';
+
+          const ja = document.createElement('input');
+          ja.placeholder = '日本語駅名';
+          ja.value = s.ja;
+          ja.oninput = (ev) => { state.draft.stations[idx].ja = ev.target.value; };
+
+          const en = document.createElement('input');
+          en.placeholder = '英語駅名';
+          en.value = s.en;
+          en.oninput = (ev) => { state.draft.stations[idx].en = ev.target.value; };
+
+          const dwell = document.createElement('input');
+          dwell.type = 'number';
+          dwell.min = '1';
+          dwell.placeholder = '停車秒';
+          dwell.value = s.dwell;
+          dwell.oninput = (ev) => { state.draft.stations[idx].dwell = Math.max(1, Number(ev.target.value) || 1); };
+
+          const travel = document.createElement('input');
+          travel.type = 'number';
+          travel.min = '1';
+          travel.placeholder = '移動秒';
+          travel.value = s.travel;
+          travel.oninput = (ev) => { state.draft.stations[idx].travel = Math.max(1, Number(ev.target.value) || 1); };
+
+          const guideJa = document.createElement('input');
+          guideJa.placeholder = '駅案内 日本語';
+          guideJa.value = s.guideJa || '';
+          guideJa.oninput = (ev) => { state.draft.stations[idx].guideJa = ev.target.value; };
+
+          const guideEn = document.createElement('input');
+          guideEn.placeholder = '駅案内 英語';
+          guideEn.value = s.guideEn || '';
+          guideEn.oninput = (ev) => { state.draft.stations[idx].guideEn = ev.target.value; };
+
+          const up = document.createElement('button');
+          up.className = 'mini-btn move';
+          up.textContent = '↑';
+          up.onclick = () => moveStation(idx, -1);
+
+          const down = document.createElement('button');
+          down.className = 'mini-btn move';
+          down.textContent = '↓';
+          down.onclick = () => moveStation(idx, 1);
+
+          const del = document.createElement('button');
+          del.className = 'mini-btn delete';
+          del.textContent = '削除';
+          del.onclick = () => deleteStation(idx);
+
+          row.append(ja, en, dwell, travel, guideJa, guideEn, up, down, del);
+          wrap.appendChild(row);
+        });
+      }
+
+      function moveStation(index, dir) {
+        const to = index + dir;
+        if (to < 0 || to >= state.draft.stations.length) return;
+        const tmp = state.draft.stations[index];
+        state.draft.stations[index] = state.draft.stations[to];
+        state.draft.stations[to] = tmp;
+        renderEditorStations();
+      }
+
+      function deleteStation(index) {
+        if (state.draft.stations.length <= 2) {
+          alert('駅は2つ以上必要です');
+          return;
+        }
+        state.draft.stations.splice(index, 1);
+        renderEditorStations();
+      }
+
+      window.addStation = function addStation() {
+        state.draft.stations.push({
+          ja: '新しい駅',
+          en: 'New Station',
+          dwell: 3,
+          travel: 10,
+          guideJa: 'ご利用ありがとうございました。',
+          guideEn: 'Thank you for riding.'
+        });
+        renderEditorStations();
+      };
+
+      window.openEditor = function openEditor() {
+        if (!state.controlsUnlocked) return;
+        state.draft = structuredClone(state.data);
+        el('serviceJaInput').value = state.draft.serviceJa;
+        el('serviceEnInput').value = state.draft.serviceEn;
+        el('destJaInput').value = state.draft.destinationJa;
+        el('destEnInput').value = state.draft.destinationEn;
+        el('themeSelect').value = state.draft.theme;
+        el('noticeInput').value = state.draft.notices.join(' | ');
+        renderEditorStations();
+        el('editor').classList.add('show');
+      };
+
+      window.closeEditor = function closeEditor() {
+        el('editor').classList.remove('show');
+      };
+
+      window.saveEditor = function saveEditor() {
+        const newData = structuredClone(state.draft);
+        newData.serviceJa = el('serviceJaInput').value.trim() || '各駅停車';
+        newData.serviceEn = el('serviceEnInput').value.trim() || 'Local';
+        newData.destinationJa = el('destJaInput').value.trim();
+        newData.destinationEn = el('destEnInput').value.trim();
+        newData.theme = el('themeSelect').value;
+        newData.notices = el('noticeInput').value.split('|').map((v) => v.trim()).filter(Boolean);
+
+        newData.stations = newData.stations.map((s) => ({
+          ja: String(s.ja || '').trim(),
+          en: String(s.en || '').trim(),
+          dwell: Math.max(1, Number(s.dwell) || 1),
+          travel: Math.max(1, Number(s.travel) || 1),
+          guideJa: String(s.guideJa || '').trim(),
+                        guideEn: String(s.guideEn || '').trim() || String(s.guideJa || '').trim()
+        })).filter((s) => s.ja && s.en);
+
+        if (newData.stations.length < 2) {
+          alert('駅は2つ以上必要です');
+          return;
+        }
+
+        state.data = normalizeData(newData);
+        if (state.currentIndex >= stations().length) state.currentIndex = 0;
+        saveData();
+        setPhase('stop');
+        closeEditor();
+      };
+
+      window.manualAdvance = function manualAdvance() {
+        if (state.phase === 'stop') setPhase('guide');
+        else if (state.phase === 'guide') setPhase('move');
+        else { state.currentIndex = nextIndex(); setPhase('stop'); }
+      };
+
+      window.toggleAuto = function toggleAuto() {
+        state.autoEnabled = !state.autoEnabled;
+        renderControls();
+      };
+
+      window.lockControls = function lockControls() {
+        state.controlsUnlocked = false;
+        renderControls();
+      };
+
+      window.addEventListener('resize', renderAll);
+      document.getElementById('tapArea').addEventListener('click', handleTap);
+
+      function runSelfTests() {
+        console.assert(Array.isArray(stations()), 'stations should be an array');
+        console.assert(stations().length >= 2, 'stations should have at least 2 items');
+        console.assert(typeof currentStation().ja === 'string', 'current station ja should be string');
+        console.assert(typeof nextStation().en === 'string', 'next station en should be string');
+        console.assert(typeof xForIndex(0) === 'number', 'xForIndex should return a number');
+        console.assert(nextIndex() === 1, 'nextIndex should point to second station initially');
+        console.assert(trackMetrics().trackEnd > trackMetrics().trackStart, 'track width should be positive');
+        const normalized = normalizeData({ stations: [{ ja: 'A', en: 'A', dwell: 0, travel: 0 }, { ja: 'B', en: 'B', dwell: 2, travel: 3 }] });
+        console.assert(normalized.stations[0].dwell === 1, 'dwell should clamp to 1');
+        console.assert(normalized.stations[0].travel === 1, 'travel should clamp to 1');
+      }
+
+      function init() {
+        applyTheme();
+        setPhase('stop');
+        startLanguageCycle();
+        startPhaseTimer();
+        runSelfTests();
+      }
+
+      init();
+    })();
+  </script>
 </body>
 </html>
