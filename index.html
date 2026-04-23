@@ -534,8 +534,8 @@
 <body id="tapArea">
   <div class="app">
     <div class="header">
-      <div class="badge" id="serviceType">各駅停車</div>
-      <div class="destination" id="destinationText">東京 ゆき</div>
+      <div class="badge" id="serviceType">山手線</div>
+      <div class="destination" id="destinationText">内回り</div>
     </div>
 
     <div class="divider-shadow"></div>
@@ -544,7 +544,7 @@
       <div class="left-label" id="leftLabel">次は</div>
       <div class="station-wrap">
         <div class="station-sub" id="stationSub"></div>
-        <div class="station-main" id="stationMain">静岡</div>
+        <div class="station-main" id="stationMain">東京</div>
       </div>
       <div class="time-panel">
         <div class="time-row" id="stopTimeRow">
@@ -652,7 +652,7 @@
     (() => {
       const STORAGE_KEY = 'train_lcd_complete_final_v1';
       const NORMAL_PHASE_SECONDS = 8;
-      const GUIDE_PHASE_SECONDS = 5;
+      const GUIDE_PHASE_SECONDS = 2;
 
       const THEMES = {
         blue:   { theme: '#1f33ff', dark: '#1626cc', accent: '#ff6a00', soft: '#ffd4b3' },
@@ -664,23 +664,259 @@
       };
 
       const defaultData = {
-        serviceJa: '各駅停車',
-        serviceEn: 'Local',
-        destinationJa: '',
-        destinationEn: '',
-        theme: 'blue',
-        notices: [
-          'この電車は各駅に停車します。',
-          '駆け込み乗車はおやめください。',
-          '携帯電話はマナーモードに設定してください。'
-        ],
-        stations: [
-          { ja: '掛川', en: 'Kakegawa', dwell: 3, travel: 10, guideJa: 'お出口は左側です。', guideEn: 'Doors will open on the left.' },
-          { ja: '静岡', en: 'Shizuoka', dwell: 5, travel: 12, guideJa: '東海道線はお乗り換えです。', guideEn: 'Transfer for the Tokaido Line.' },
-          { ja: '新富士', en: 'Shin-Fuji', dwell: 3, travel: 9, guideJa: 'お出口は右側です。', guideEn: 'Doors will open on the right.' },
-          { ja: '三島', en: 'Mishima', dwell: 4, travel: 11, guideJa: '伊豆箱根鉄道はお乗り換えです。', guideEn: 'Transfer for Izuhakone Railway.' }
-        ]
-      };
+  "serviceJa": "山手線",
+  "serviceEn": "Yamanote Line",
+  "destinationJa": "内回り",
+  "destinationEn": "Inner Loop",
+  "theme": "green",
+  "notices": [
+    "この電車は山手線内回りです。",
+    "発車時刻が非常に短く設定されています。",
+    "駆け込み乗車はおやめください。"
+  ],
+  "stations": [
+    {
+      "ja": "東京",
+      "en": "Tokyo",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "神田",
+      "en": "Kanda",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "秋葉原",
+      "en": "Akihabara",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "御徒町",
+      "en": "Okachimachi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "上野",
+      "en": "Ueno",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "鶯谷",
+      "en": "Uguisudani",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "日暮里",
+      "en": "Nippori",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "西日暮里",
+      "en": "Nishi-Nippori",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "田端",
+      "en": "Tabata",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "駒込",
+      "en": "Komagome",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "巣鴨",
+      "en": "Sugamo",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "大塚",
+      "en": "Otsuka",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "池袋",
+      "en": "Ikebukuro",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "目白",
+      "en": "Mejiro",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "高田馬場",
+      "en": "Takadanobaba",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "新大久保",
+      "en": "Shin-Okubo",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "新宿",
+      "en": "Shinjuku",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "代々木",
+      "en": "Yoyogi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "原宿",
+      "en": "Harajuku",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "渋谷",
+      "en": "Shibuya",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "恵比寿",
+      "en": "Ebisu",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "目黒",
+      "en": "Meguro",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "五反田",
+      "en": "Gotanda",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "大崎",
+      "en": "Osaki",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "品川",
+      "en": "Shinagawa",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "お乗り換えはお足元にご注意ください。",
+      "guideEn": "Please mind the gap when changing trains."
+    },
+    {
+      "ja": "高輪ゲートウェイ",
+      "en": "Takanawa Gateway",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "田町",
+      "en": "Tamachi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "浜松町",
+      "en": "Hamamatsucho",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "新橋",
+      "en": "Shimbashi",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    },
+    {
+      "ja": "有楽町",
+      "en": "Yurakucho",
+      "dwell": 2,
+      "travel": 3,
+      "guideJa": "山手線内回りです。",
+      "guideEn": "This is the Yamanote Line inner loop."
+    }
+  ]
+};
 
       const state = {
         data: loadData(),
@@ -855,55 +1091,68 @@
       }
 
       function renderRoute() {
-        const nameLayer = el('nameLayer');
-        const arrowLayer = el('arrowLayer');
-        const movingLayer = el('movingLayer');
-        nameLayer.innerHTML = '';
-        arrowLayer.innerHTML = '';
-        movingLayer.innerHTML = '';
+  const nameLayer = el('nameLayer');
+  const arrowLayer = el('arrowLayer');
+  const movingLayer = el('movingLayer');
+  nameLayer.innerHTML = '';
+  arrowLayer.innerHTML = '';
+  movingLayer.innerHTML = '';
 
-        stations().forEach((station, index) => {
-          const x = xForIndex(index);
+  const maxVisible = 8; // 現在 + 先5駅
+  const totalStations = stations().length;
 
-          const dot = document.createElement('div');
-          const active = state.phase === 'stop' && index === state.currentIndex;
-          dot.className = 'station' + (active ? ' active' : '');
-          dot.style.left = `${x}px`;
-          nameLayer.appendChild(dot);
+  // 表示する駅数（終点近く対策）
+  const visibleCount = Math.min(maxVisible, totalStations - state.currentIndex);
 
-          const name = document.createElement('div');
-          const dim = index < state.currentIndex ? ' dim' : '';
-          name.className = `station-name${dim}`;
-          name.style.left = `${x}px`;
-          name.textContent = state.currentLang === 'ja' ? station.ja : station.en;
-          nameLayer.appendChild(name);
-        });
+  stations().forEach((station, index) => {
+    // 現在より前は表示しない
+    if (index < state.currentIndex) return;
 
-        if (state.phase === 'move' || state.phase === 'guide') {
-          const startX = xForIndex(state.currentIndex);
-          const endX = xForIndex(nextIndex());
-          const midX = (startX + endX) / 2;
+    // 先5駅まで
+    if (index >= state.currentIndex + maxVisible) return;
 
-          const move = document.createElement('div');
-          move.className = 'moving-arrow' + (state.currentLang === 'en' ? ' en' : '');
-          move.style.left = `${midX}px`;
-          movingLayer.appendChild(move);
+    const visibleIndex = index - state.currentIndex;
 
-          const segCount = Math.max(1, Math.floor((endX - startX) / 58));
-          for (let i = 1; i <= segCount; i += 1) {
-            const ratio = i / (segCount + 1);
-            const ax = startX + (endX - startX) * ratio;
-            const a = document.createElement('div');
-            a.className = 'segment-arrow blink';
-            a.style.left = `${ax}px`;
-            a.style.animationDelay = `${i * 0.18}s`;
-            arrowLayer.appendChild(a);
-          }
-        }
+    const metrics = trackMetrics();
+    const x = metrics.trackStart +
+      ((metrics.trackEnd - metrics.trackStart) * visibleIndex / (visibleCount - 1 || 1));
 
-        renderGuide();
-      }
+    // 駅丸
+    const dot = document.createElement('div');
+    const active = state.phase === 'stop' && index === state.currentIndex;
+    dot.className = 'station' + (active ? ' active' : '');
+    dot.style.left = `${x}px`;
+    nameLayer.appendChild(dot);
 
+    // 駅名
+    const name = document.createElement('div');
+    name.className = 'station-name';
+    name.style.left = `${x}px`;
+    name.textContent = state.currentLang === 'ja' ? station.ja : station.en;
+    nameLayer.appendChild(name);
+  });
+
+  // ▶ 移動矢印（今→次駅）
+  if (state.phase === 'move' || state.phase === 'guide') {
+    const metrics = trackMetrics();
+
+    const startIndex = 0;
+    const endIndex = Math.min(1, visibleCount - 1);
+
+    const startX = metrics.trackStart;
+    const endX = metrics.trackStart +
+      ((metrics.trackEnd - metrics.trackStart) * endIndex / (visibleCount - 1 || 1));
+
+    const midX = (startX + endX) / 2;
+
+    const move = document.createElement('div');
+    move.className = 'moving-arrow' + (state.currentLang === 'en' ? ' en' : '');
+    move.style.left = `${midX}px`;
+    movingLayer.appendChild(move);
+  }
+
+  renderGuide();
+}
       function renderTicker() {
         const notices = state.data.notices.length ? state.data.notices : ['お知らせはありません。'];
         const text = notices.join('　◆　');
