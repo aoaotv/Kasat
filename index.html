@@ -75,9 +75,9 @@
 
     .main {
       display: grid;
-      grid-template-columns: 120px 1fr; /* 固定幅で分離 */
+      grid-template-columns: 120px 1fr auto; /* 右に秒表示追加 */
       align-items: center;
-      gap: 16px; /* ←ここ重要：しっかり距離とる */
+      gap: 16px;
       padding: 0 14px 0;
     }
 
@@ -113,6 +113,34 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .time-panel {
+      min-width: 132px;
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+    .time-row {
+      display: grid;
+      grid-template-columns: auto auto;
+      align-items: baseline;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .time-row.hidden {
+      display: none;
+    }
+    .time-label {
+      color: #4b5563;
+      font-size: clamp(14px, 1.4vw, 22px);
+      font-weight: 900;
+    }
+    .time-value {
+      color: #111;
+      font-size: clamp(22px, 2.3vw, 36px);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
     }
 
     .blue-line {
@@ -469,10 +497,13 @@
       .header { padding: 10px 14px 8px; }
       .badge { padding: 10px 16px; font-size: 16px; }
       .destination { font-size: 20px; }
-      .main { grid-template-columns: 90px 1fr; padding: 6px 14px 0; }
+      .main { grid-template-columns: 90px 1fr auto; padding: 6px 14px 0; }
       .left-label { font-size: 22px; }
       .station-sub { font-size: 18px; min-height: 1.1em; }
       .station-main { font-size: 46px; min-height: 1.1em; }
+      .time-panel { min-width: 98px; gap: 4px; }
+      .time-label { font-size: 11px; }
+      .time-value { font-size: 18px; }
       .blue-line { margin-top: 4px; }
       .route-area { min-height: 116px; padding: 0 10px 2px; }
       .shape-layer, .arrow-layer, .moving-layer { top: 56px; }
@@ -514,6 +545,16 @@
       <div class="station-wrap">
         <div class="station-sub" id="stationSub"></div>
         <div class="station-main" id="stationMain">静岡</div>
+      </div>
+      <div class="time-panel">
+        <div class="time-row" id="stopTimeRow">
+          <div class="time-label" id="stopTimeLabel">停車時間</div>
+          <div class="time-value" id="stopTimeValue">5秒</div>
+        </div>
+        <div class="time-row" id="arrivalTimeRow">
+          <div class="time-label" id="arrivalTimeLabel">到着時間</div>
+          <div class="time-value" id="arrivalTimeValue">17秒</div>
+        </div>
       </div>
     </div>
 
@@ -731,16 +772,52 @@
         el('destinationText').textContent = state.currentLang === 'ja' ? `${destJa()} ゆき` : `for ${destEn()}`;
       }
 
+      function getTimeInfo() {
+        if (state.phase === 'stop') {
+          return {
+            stop: state.remainSeconds,
+            arrival: 0
+          };
+        }
+        if (state.phase === 'move') {
+          return {
+            stop: 0,
+            arrival: state.remainSeconds
+          };
+        }
+        return {
+          stop: 0,
+          arrival: 0
+        };
+      }
+
       function renderMain() {
         const s = displayStation();
+        const timeInfo = getTimeInfo();
+        const stopRow = el('stopTimeRow');
+        const arrivalRow = el('arrivalTimeRow');
+        const showStop = state.phase === 'stop';
+        const showArrival = state.phase === 'move';
+
+        stopRow.classList.toggle('hidden', !showStop);
+        arrivalRow.classList.toggle('hidden', !showArrival);
+
         if (state.currentLang === 'ja') {
-          el('leftLabel').textContent = state.phase === 'stop' ? '停車中' : '次は';
+          el('leftLabel').textContent = state.phase === 'stop' ? 'ただいま' : 'まもなく';
           el('stationSub').textContent = '';
           el('stationMain').textContent = s.ja;
+          el('stopTimeLabel').textContent = '停車時間';
+          el('arrivalTimeLabel').textContent = '到着時間';
+          el('stopTimeValue').textContent = `${timeInfo.stop}秒`;
+          el('arrivalTimeValue').textContent = `${timeInfo.arrival}秒`;
         } else {
-          el('leftLabel').textContent = state.phase === 'stop' ? 'Now Stopping' : 'Next';
+          el('leftLabel').textContent = state.phase === 'stop' ? 'Now' : 'Arriving';
           el('stationSub').textContent = s.ja;
           el('stationMain').textContent = s.en;
+          el('stopTimeLabel').textContent = 'Stop';
+          el('arrivalTimeLabel').textContent = 'Arrival';
+          el('stopTimeValue').textContent = `${timeInfo.stop}s`;
+          el('arrivalTimeValue').textContent = `${timeInfo.arrival}s`;
         }
       }
 
@@ -753,10 +830,10 @@
         const s = nextStation();
         el('guideTitle').textContent = '';
         if (state.currentLang === 'ja') {
-          el('guideMain').textContent = s.ja;
+          el('guideMain').textContent = `まもなく ${s.ja}`;
           el('guideSub').textContent = s.guideJa || 'ご利用ありがとうございました。';
         } else {
-          el('guideMain').textContent = s.en;
+          el('guideMain').textContent = `Arriving ${s.en}`;
           el('guideSub').textContent = s.guideEn || 'Thank you for riding.';
         }
         layer.classList.add('show');
@@ -869,6 +946,7 @@
             setPhase('stop');
           }
         } else {
+          renderMain();
           renderRoute();
         }
       }
