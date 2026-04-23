@@ -21,7 +21,7 @@
     html, body {
       margin: 0;
       width: 100%;
-      height: 100%;
+      height: 100vh; /* 画面に完全フィット */
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
@@ -33,10 +33,9 @@
     body { display: flex; flex-direction: column; }
 
     .app {
-      flex: 1;
-      min-height: 0;
+      height: 100vh; /* ←これが超重要 */
       display: grid;
-      grid-template-rows: auto auto auto minmax(150px, 1fr) auto auto;
+      grid-template-rows: auto auto auto auto 1fr auto; /* 真ん中だけ伸ばす */
       overflow: hidden;
     }
 
@@ -44,7 +43,7 @@
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 14px 16px 10px;
+      padding: 8px 16px 4px; /* 上詰め */
     }
 
     .badge {
@@ -69,63 +68,69 @@
     }
 
     .divider-shadow {
-      height: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,.18);
+      height: 2px; /* ほぼ消す */
+      box-shadow: 0 2px 4px rgba(0,0,0,.1);
       background: transparent;
     }
 
     .main {
       display: grid;
-      grid-template-columns: minmax(110px, 18%) 1fr;
-      align-items: end;
-      gap: 12px;
-      padding: 10px 18px 4px;
+      grid-template-columns: 120px 1fr; /* 固定幅で分離 */
+      align-items: center;
+      gap: 16px; /* ←ここ重要：しっかり距離とる */
+      padding: 0 14px 0;
     }
 
     .left-label {
       display: flex;
       align-items: center;
-      justify-content: center;
-      min-height: 2.2em;
-      text-align: center;
-      font-size: clamp(28px, 3vw, 52px);
-      line-height: 1.05;
+      justify-content: flex-start;
+      font-size: clamp(20px, 2vw, 34px);
       font-weight: 900;
       color: #111;
+      white-space: nowrap; /* 改行防止 */
     }
 
-    .station-wrap { min-width: 0; text-align: center; }
+    .station-wrap {
+      min-width: 0;
+      text-align: left; /* 中央やめる */
+      padding-left: 8px; /* 強制的に離す */
+    }
     .station-sub {
-      min-height: 1.2em;
+      min-height: 0.8em; /* 無駄な高さ削減 */
       color: var(--sub);
       font-weight: 800;
-      line-height: 1.05;
-      font-size: clamp(20px, 2.2vw, 34px);
+      line-height: 1.0;
+      font-size: clamp(16px, 2vw, 28px);
     }
     .station-main {
-      min-height: 1.2em;
+      min-height: 0.9em;
       color: #111;
       font-weight: 900;
-      line-height: 1.03;
+      line-height: 0.95;
       letter-spacing: .01em;
-      font-size: clamp(52px, 6vw, 100px);
+      font-size: clamp(44px, 5vw, 88px);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .blue-line {
+      position: relative;
+      z-index: 10; /* 上に固定 */
       height: 6px;
       background: var(--theme);
       box-shadow: 0 1px 2px rgba(0,0,0,.22);
-      margin-top: 6px;
+      margin-top: 0;
     }
 
     .route-area {
       position: relative;
-      min-height: 150px;
+      z-index: 1;
+      min-height: 60px;
       overflow: hidden;
-      padding: 0 14px 4px;
+      padding: 14px 10px 0; /* 上に余白増やして完全分離 */
+      margin-top: 0;
     }
 
     .route-inner { position: absolute; inset: 0; }
@@ -136,9 +141,21 @@
       pointer-events: none;
     }
 
-    .shape-layer { top: 86px; height: 36px; z-index: 1; }
-    .arrow-layer, .moving-layer { top: 86px; height: 36px; z-index: 2; }
-    .name-layer { top: 6px; height: 80px; z-index: 3; }
+    .shape-layer {
+      top: 36px;
+      height: 24px;
+      z-index: 1;
+    }
+    .arrow-layer, .moving-layer {
+      top: 36px;
+      height: 24px;
+      z-index: 2;
+    }
+    .name-layer {
+      top: 22px; /* ←さらに下げる（決定版） */
+      height: 44px;
+      z-index: 3;
+    }
 
     .guide-layer {
       inset: 0;
@@ -217,7 +234,7 @@
 
     .station {
       position: absolute;
-      top: 18px;
+      top: 2px; /* 少し上げて間隔を広げる */
       width: 14px;
       height: 14px;
       border-radius: 50%;
@@ -234,7 +251,8 @@
     .station-name {
       position: absolute;
       left: 0;
-      top: -6px;
+      top: 32px; /* ←さらに下げてマルとの間を広げる */
+      transform: translateX(-50%); /* ←完全に離す */
       transform: translateX(-50%);
       font-weight: 900;
       color: #24262a;
@@ -251,7 +269,7 @@
 
     .moving-arrow {
       position: absolute;
-      top: 5px;
+      top: 0px;
       width: 20px;
       height: 20px;
       transform: translateX(-50%);
@@ -265,7 +283,7 @@
 
     .segment-arrow {
       position: absolute;
-      top: 10px;
+      top: 2px;
       width: 10px;
       height: 10px;
       transform: translateX(-50%);
@@ -416,8 +434,38 @@
       display: none;
     }
 
-    @media (orientation: landscape) and (max-width: 950px) {
-      .app { grid-template-rows: auto auto auto minmax(116px, 1fr) auto auto; }
+    @media (orientation: landscape) {
+      html, body {
+        height: 100vh;
+      }
+
+      .app {
+        height: 100vh;
+        grid-template-rows: auto auto auto auto 1fr auto;
+      }
+
+      .route-area {
+        min-height: 0;
+        height: 100%;
+        margin-top: 0;
+      }
+
+      .shape-layer, .arrow-layer, .moving-layer {
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      .name-layer {
+        top: 18px;
+      }
+
+      .station-name {
+        top: 28px; /* 横向きも間隔広げる */
+      }
+    } /* ←ここが原因だったので修正 */
+      }
+    }
+    }
       .header { padding: 10px 14px 8px; }
       .badge { padding: 10px 16px; font-size: 16px; }
       .destination { font-size: 20px; }
