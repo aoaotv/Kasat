@@ -1455,10 +1455,12 @@
         const s = nextStation();
         el('guideTitle').textContent = '';
         if (state.currentLang === 'ja') {
-          el('guideMain').textContent = `まもなく ${s.ja}`;
+          const guideLabelJa = getTimeInfo().arrival >= 10 ? '次は' : 'まもなく';
+          el('guideMain').textContent = `${guideLabelJa} ${s.ja}`;
           el('guideSub').textContent = s.guideJa || 'ご利用ありがとうございました。';
         } else {
-          el('guideMain').textContent = `Arriving ${s.en}`;
+          const guideLabelEn = getTimeInfo().arrival >= 10 ? 'Next' : 'Arriving';
+          el('guideMain').textContent = `${guideLabelEn} ${s.en}`;
           el('guideSub').textContent = s.guideEn || 'Thank you for riding.';
         }
         layer.classList.add('show');
