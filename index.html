@@ -1524,17 +1524,8 @@
           move.className = 'moving-arrow' + (state.currentLang === 'en' ? ' en' : '');
           move.style.left = `${midX}px`;
           movingLayer.appendChild(move);
+          // 小さい点滅矢印は邪魔になるため表示しない
 
-          const segCount = Math.max(1, Math.floor((endX - startX) / 58));
-          for (let i = 1; i <= segCount; i += 1) {
-            const ratio = i / (segCount + 1);
-            const ax = startX + (endX - startX) * ratio;
-            const a = document.createElement('div');
-            a.className = 'segment-arrow blink';
-            a.style.left = `${ax}px`;
-            a.style.animationDelay = `${i * 0.18}s`;
-            arrowLayer.appendChild(a);
-          }
         }
 
         renderGuide();
