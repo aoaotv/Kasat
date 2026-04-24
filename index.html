@@ -262,7 +262,7 @@
 
     .station {
       position: absolute;
-      top: 2px; /* 少し上げて間隔を広げる */
+      top: 12px; /* 駅名と重ならないようにマルを少し下げる */
       width: 14px;
       height: 14px;
       border-radius: 50%;
@@ -297,9 +297,9 @@
 
     .moving-arrow {
       position: absolute;
-      top: 0px;
-      width: 20px;
-      height: 20px;
+      top: 0; /* 路線図の線に縦位置を合わせる */
+      width: 36px;
+      height: 36px; /* 路線図の線の太さと同じ */
       transform: translateX(-50%);
       clip-path: polygon(0 0, 68% 0, 100% 50%, 68% 100%, 0 100%, 20% 50%);
       background: linear-gradient(#ff7d21, #c74600);
@@ -311,7 +311,7 @@
 
     .segment-arrow {
       position: absolute;
-      top: 2px;
+      top: 9px; /* 点滅矢印も少しだけ上へ調整 */
       width: 10px;
       height: 10px;
       transform: translateX(-50%);
@@ -420,6 +420,17 @@
       background: linear-gradient(90deg, var(--theme-dark), var(--theme));
       border: 1px solid #d1d5db;
     }
+    .room-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .room-status {
+      color: #4b5563;
+      font-size: 13px;
+      font-weight: 900;
+    }
 
     .station-edit-row {
       display: grid;
@@ -514,10 +525,10 @@
       .track-head { left: 18px; width: 40px; height: 30px; }
       .track-base { left: 56px; right: 84px; height: 30px; }
       .track-base::after { right: -48px; border-top-width: 15px; border-bottom-width: 15px; border-left-width: 48px; }
-      .station { width: 12px; height: 12px; top: 9px; }
+      .station { width: 12px; height: 12px; top: 18px; }
       .station-name { font-size: 12px; top: 0; max-width: 88px; }
-      .moving-arrow { width: 18px; height: 18px; top: 6px; }
-      .segment-arrow { width: 8px; height: 8px; top: 11px; }
+      .moving-arrow { width: 30px; height: 30px; top: 0; }
+      .segment-arrow { width: 8px; height: 8px; top: 17px; }
       .controls button { font-size: 13px; padding: 8px 10px; }
       .ticker-wrap { height: 36px; }
       .ticker { line-height: 36px; font-size: 14px; }
@@ -629,6 +640,17 @@
           <label>プレビュー</label>
           <div class="theme-preview"></div>
         </div>
+        <div class="field">
+          <label>部屋番号（連携用）</label>
+          <input id="roomCodeInput" placeholder="例: 1234" inputmode="numeric" />
+        </div>
+        <div class="field">
+          <label>Firestore連携</label>
+          <div class="room-controls">
+            <button type="button" onclick="connectRoom()">設定 / 入室</button>
+            <span class="room-status" id="roomStatus">未接続</span>
+          </div>
+        </div>
       </div>
 
       <div class="field" style="margin-bottom:14px;">
@@ -648,11 +670,28 @@
 
   <div class="toast" id="toast"></div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
     (() => {
       const STORAGE_KEY = 'train_lcd_complete_final_v1';
+      const DEVICE_ID_KEY = 'train_lcd_device_id_v1';
       const NORMAL_PHASE_SECONDS = 8;
-      const GUIDE_PHASE_SECONDS = 2;
+      const GUIDE_PHASE_SECONDS = 7; // 駅あんないを表示する秒数（移動時間に含める）
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyC9ygh6HjX5mK1e5ZBnEWnLQCEjRMKIEWA",
+        authDomain: "sinzo-3f972.firebaseapp.com",
+        databaseURL: "https://sinzo-3f972-default-rtdb.firebaseio.com",
+        projectId: "sinzo-3f972",
+        storageBucket: "sinzo-3f972.firebasestorage.app",
+        messagingSenderId: "1058985227031",
+        appId: "1:1058985227031:web:6b152911e917903910bd52"
+      };
+
+      const firebaseApp = initializeApp(firebaseConfig);
+      const db = getFirestore(firebaseApp);
 
       const THEMES = {
         blue:   { theme: '#1f33ff', dark: '#1626cc', accent: '#ff6a00', soft: '#ffd4b3' },
@@ -929,10 +968,141 @@
         draft: null,
         taps: [],
         phaseTimer: null,
-        langTimer: null
+        langTimer: null,
+        deviceId: getDeviceId(),
+        roomCode: '',
+        roomRole: 'none', // none | owner | viewer
+        roomUnsubscribe: null,
+        applyingRemote: false,
+        lastSyncAt: 0
       };
 
       const el = (id) => document.getElementById(id);
+
+      function getDeviceId() {
+        try {
+          let id = localStorage.getItem(DEVICE_ID_KEY);
+          if (!id) {
+            id = `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            localStorage.setItem(DEVICE_ID_KEY, id);
+          }
+          return id;
+        } catch {
+          return `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        }
+      }
+
+      function cleanRoomCode(value) {
+        return String(value || '').trim().replace(/[^0-9A-Za-z_-]/g, '').slice(0, 32);
+      }
+
+      function roomDocRef(code = state.roomCode) {
+        return doc(db, 'train_lcd_rooms', code);
+      }
+
+      function updateRoomStatus(text) {
+        const status = el('roomStatus');
+        if (status) status.textContent = text;
+      }
+
+      function makeRoomPayload() {
+        return {
+          data: state.data,
+          currentIndex: state.currentIndex,
+          phase: state.phase,
+          remainSeconds: state.remainSeconds,
+          currentLang: state.currentLang,
+          updatedBy: state.deviceId,
+          updatedAt: serverTimestamp()
+        };
+      }
+
+      async function syncRoomNow(force = false) {
+        if (!state.roomCode || state.roomRole !== 'owner' || state.applyingRemote) return;
+        const now = Date.now();
+        if (!force && now - state.lastSyncAt < 700) return;
+        state.lastSyncAt = now;
+        try {
+          await updateDoc(roomDocRef(), makeRoomPayload());
+        } catch (error) {
+          console.warn('Firestore sync failed', error);
+          updateRoomStatus('同期エラー');
+        }
+      }
+
+      function applyRemoteRoom(room) {
+        if (!room || room.updatedBy === state.deviceId) return;
+        state.applyingRemote = true;
+        try {
+          if (room.data) state.data = normalizeData(room.data);
+          state.currentIndex = Math.min(Math.max(0, Number(room.currentIndex) || 0), stations().length - 1);
+          if (['stop', 'guide', 'move'].includes(room.phase)) state.phase = room.phase;
+          state.remainSeconds = Math.max(0, Number(room.remainSeconds) || 0);
+          state.currentLang = room.currentLang === 'en' ? 'en' : 'ja';
+          saveData();
+          renderAll();
+        } finally {
+          state.applyingRemote = false;
+        }
+      }
+
+      function subscribeRoom(code) {
+        if (state.roomUnsubscribe) state.roomUnsubscribe();
+        state.roomUnsubscribe = onSnapshot(roomDocRef(code), (snapshot) => {
+          if (!snapshot.exists()) {
+            updateRoomStatus('部屋なし');
+            return;
+          }
+          const room = snapshot.data();
+          state.roomRole = room.ownerId === state.deviceId ? 'owner' : 'viewer';
+          updateRoomStatus(state.roomRole === 'owner' ? `作成者：${code}` : `入室中：${code}`);
+          applyRemoteRoom(room);
+        }, (error) => {
+          console.warn('Firestore watch failed', error);
+          updateRoomStatus('接続エラー');
+        });
+      }
+
+      async function connectRoom() {
+        const code = cleanRoomCode(el('roomCodeInput')?.value);
+        if (!code) {
+          showToast('部屋番号を入力してください');
+          return;
+        }
+
+        try {
+          const ref = roomDocRef(code);
+          const snap = await getDoc(ref);
+          state.roomCode = code;
+
+          if (snap.exists()) {
+            const room = snap.data();
+            state.roomRole = room.ownerId === state.deviceId ? 'owner' : 'viewer';
+            applyRemoteRoom(room);
+            subscribeRoom(code);
+            updateRoomStatus(state.roomRole === 'owner' ? `作成者：${code}` : `入室中：${code}`);
+            showToast(state.roomRole === 'owner' ? '部屋に再接続しました' : '部屋に入室しました');
+            return;
+          }
+
+          state.roomRole = 'owner';
+          await setDoc(ref, {
+            roomCode: code,
+            ownerId: state.deviceId,
+            createdAt: serverTimestamp(),
+            ...makeRoomPayload()
+          });
+          subscribeRoom(code);
+          updateRoomStatus(`作成者：${code}`);
+          showToast('部屋を作成しました');
+        } catch (error) {
+          console.error(error);
+          updateRoomStatus('接続エラー');
+          showToast('Firestoreに接続できませんでした');
+        }
+      }
+
+      window.connectRoom = connectRoom;
 
       function loadData() {
         try {
@@ -1015,7 +1185,8 @@
             arrival: 0
           };
         }
-        if (state.phase === 'move') {
+        // 駅あんない中も走行時間として到着カウントを進める
+        if (state.phase === 'guide' || state.phase === 'move') {
           return {
             stop: 0,
             arrival: state.remainSeconds
@@ -1033,7 +1204,7 @@
         const stopRow = el('stopTimeRow');
         const arrivalRow = el('arrivalTimeRow');
         const showStop = state.phase === 'stop';
-        const showArrival = state.phase === 'move';
+        const showArrival = state.phase === 'guide' || state.phase === 'move';
 
         stopRow.classList.toggle('hidden', !showStop);
         arrivalRow.classList.toggle('hidden', !showArrival);
@@ -1091,68 +1262,66 @@
       }
 
       function renderRoute() {
-  const nameLayer = el('nameLayer');
-  const arrowLayer = el('arrowLayer');
-  const movingLayer = el('movingLayer');
-  nameLayer.innerHTML = '';
-  arrowLayer.innerHTML = '';
-  movingLayer.innerHTML = '';
+        const nameLayer = el('nameLayer');
+        const arrowLayer = el('arrowLayer');
+        const movingLayer = el('movingLayer');
+        nameLayer.innerHTML = '';
+        arrowLayer.innerHTML = '';
+        movingLayer.innerHTML = '';
 
-  const maxVisible = 8; // 現在 + 先5駅
-  const totalStations = stations().length;
+        const maxVisible = 7; // 現在駅 + この先6駅
+        const totalStations = stations().length;
+        const visibleCount = Math.min(maxVisible, totalStations - state.currentIndex);
 
-  // 表示する駅数（終点近く対策）
-  const visibleCount = Math.min(maxVisible, totalStations - state.currentIndex);
+        stations().forEach((station, index) => {
+          if (index < state.currentIndex) return;
+          if (index >= state.currentIndex + maxVisible) return;
 
-  stations().forEach((station, index) => {
-    // 現在より前は表示しない
-    if (index < state.currentIndex) return;
+          const visibleIndex = index - state.currentIndex;
+          const metrics = trackMetrics();
+          const x = metrics.trackStart +
+            ((metrics.trackEnd - metrics.trackStart) * visibleIndex / (visibleCount - 1 || 1));
 
-    // 先5駅まで
-    if (index >= state.currentIndex + maxVisible) return;
+          const dot = document.createElement('div');
+          const active = state.phase === 'stop' && index === state.currentIndex;
+          dot.className = 'station' + (active ? ' active' : '');
+          dot.style.left = `${x}px`;
+          nameLayer.appendChild(dot);
 
-    const visibleIndex = index - state.currentIndex;
+          const name = document.createElement('div');
+          name.className = 'station-name';
+          name.style.left = `${x}px`;
+          name.textContent = state.currentLang === 'ja' ? station.ja : station.en;
+          nameLayer.appendChild(name);
+        });
 
-    const metrics = trackMetrics();
-    const x = metrics.trackStart +
-      ((metrics.trackEnd - metrics.trackStart) * visibleIndex / (visibleCount - 1 || 1));
+        if ((state.phase === 'move' || state.phase === 'guide') && visibleCount >= 2) {
+          const metrics = trackMetrics();
+          const startX = metrics.trackStart;
+          const endX = metrics.trackStart +
+            ((metrics.trackEnd - metrics.trackStart) * 1 / (visibleCount - 1 || 1));
+          const midX = (startX + endX) / 2;
 
-    // 駅丸
-    const dot = document.createElement('div');
-    const active = state.phase === 'stop' && index === state.currentIndex;
-    dot.className = 'station' + (active ? ' active' : '');
-    dot.style.left = `${x}px`;
-    nameLayer.appendChild(dot);
+          const move = document.createElement('div');
+          move.className = 'moving-arrow' + (state.currentLang === 'en' ? ' en' : '');
+          move.style.left = `${midX}px`;
+          movingLayer.appendChild(move);
 
-    // 駅名
-    const name = document.createElement('div');
-    name.className = 'station-name';
-    name.style.left = `${x}px`;
-    name.textContent = state.currentLang === 'ja' ? station.ja : station.en;
-    nameLayer.appendChild(name);
-  });
+          const segCount = Math.max(1, Math.floor((endX - startX) / 58));
+          for (let i = 1; i <= segCount; i += 1) {
+            const ratio = i / (segCount + 1);
+            const ax = startX + (endX - startX) * ratio;
+            const a = document.createElement('div');
+            a.className = 'segment-arrow blink';
+            a.style.left = `${ax}px`;
+            a.style.animationDelay = `${i * 0.18}s`;
+            arrowLayer.appendChild(a);
+          }
+        }
 
-  // ▶ 移動矢印（今→次駅）
-  if (state.phase === 'move' || state.phase === 'guide') {
-    const metrics = trackMetrics();
+        renderGuide();
+      }
 
-    const startIndex = 0;
-    const endIndex = Math.min(1, visibleCount - 1);
-
-    const startX = metrics.trackStart;
-    const endX = metrics.trackStart +
-      ((metrics.trackEnd - metrics.trackStart) * endIndex / (visibleCount - 1 || 1));
-
-    const midX = (startX + endX) / 2;
-
-    const move = document.createElement('div');
-    move.className = 'moving-arrow' + (state.currentLang === 'en' ? ' en' : '');
-    move.style.left = `${midX}px`;
-    movingLayer.appendChild(move);
-  }
-
-  renderGuide();
-}
       function renderTicker() {
         const notices = state.data.notices.length ? state.data.notices : ['お知らせはありません。'];
         const text = notices.join('　◆　');
@@ -1177,26 +1346,59 @@
       function setPhase(phase) {
         state.phase = phase;
         if (phase === 'stop') state.remainSeconds = currentStation().dwell;
-        if (phase === 'guide') state.remainSeconds = GUIDE_PHASE_SECONDS;
-        if (phase === 'move') state.remainSeconds = currentStation().travel;
+        // 駅あんないは移動時間に含めるので、ここで travel 秒から到着カウントを開始する
+        if (phase === 'guide') state.remainSeconds = currentStation().travel;
+        // guide から move に切り替える時は、残り秒数をリセットしない
+        if (phase === 'move' && state.remainSeconds <= 0) state.remainSeconds = currentStation().travel;
         renderAll();
+        syncRoomNow(true);
       }
 
       function tick() {
+        if (state.roomRole === 'viewer') return;
         if (!state.autoEnabled) return;
         state.remainSeconds -= 1;
-        if (state.remainSeconds <= 0) {
-          if (state.phase === 'stop') {
+
+        if (state.phase === 'stop') {
+          if (state.remainSeconds <= 0) {
             setPhase('guide');
-          } else if (state.phase === 'guide') {
-            setPhase('move');
           } else {
+            renderMain();
+            renderRoute();
+            syncRoomNow();
+          }
+          return;
+        }
+
+        if (state.phase === 'guide') {
+          if (state.remainSeconds <= 0) {
             state.currentIndex = nextIndex();
             setPhase('stop');
+            return;
           }
-        } else {
-          renderMain();
-          renderRoute();
+
+          const guideEndAt = Math.max(0, currentStation().travel - GUIDE_PHASE_SECONDS);
+          if (state.remainSeconds <= guideEndAt) {
+            state.phase = 'move';
+            renderAll();
+            syncRoomNow(true);
+          } else {
+            renderMain();
+            renderRoute();
+            syncRoomNow();
+          }
+          return;
+        }
+
+        if (state.phase === 'move') {
+          if (state.remainSeconds <= 0) {
+            state.currentIndex = nextIndex();
+            setPhase('stop');
+          } else {
+            renderMain();
+            renderRoute();
+            syncRoomNow();
+          }
         }
       }
 
@@ -1208,9 +1410,12 @@
       function startLanguageCycle() {
         clearTimeout(state.langTimer);
         function loop(lang) {
-          state.currentLang = lang;
-          renderAll();
-          const ms = lang === 'ja' ? 5000 : 3000;
+          if (state.roomRole !== 'viewer') {
+            state.currentLang = lang;
+            renderAll();
+            syncRoomNow();
+          }
+          const ms = 3500; // 3.5秒おきに言語切り替え
           state.langTimer = setTimeout(() => loop(lang === 'ja' ? 'en' : 'ja'), ms);
         }
 
@@ -1334,6 +1539,8 @@
         el('destJaInput').value = state.draft.destinationJa;
         el('destEnInput').value = state.draft.destinationEn;
         el('themeSelect').value = state.draft.theme;
+        if (el('roomCodeInput')) el('roomCodeInput').value = state.roomCode;
+        updateRoomStatus(state.roomCode ? (state.roomRole === 'owner' ? `作成者：${state.roomCode}` : `入室中：${state.roomCode}`) : '未接続');
         el('noticeInput').value = state.draft.notices.join(' | ');
         renderEditorStations();
         el('editor').classList.add('show');
