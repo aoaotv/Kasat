@@ -648,6 +648,7 @@
           <label>Firestore連携</label>
           <div class="room-controls">
             <button type="button" onclick="connectRoom()">設定 / 入室</button>
+            <button type="button" onclick="createRoomFresh()" class="secondary">作成</button>
             <span class="room-status" id="roomStatus">未接続</span>
           </div>
         </div>
@@ -675,7 +676,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     (() => {
       const STORAGE_KEY = 'train_lcd_complete_final_v1';
@@ -1105,7 +1106,50 @@
         }
       }
 
+      async function createRoomFresh() {
+        const code = cleanRoomCode(el('roomCodeInput')?.value);
+        if (!code) {
+          showToast('部屋番号を入力してください');
+          return;
+        }
+
+        try {
+          const ref = roomDocRef(code);
+
+          // すでに部屋を監視していたら、一度止める
+          if (state.roomUnsubscribe) {
+            state.roomUnsubscribe();
+            state.roomUnsubscribe = null;
+          }
+
+          updateRoomStatus('作成中...');
+
+          // 入力された部屋番号の部屋をいったん削除して、新しく作り直す
+          await deleteDoc(ref).catch(() => {});
+
+          state.roomCode = code;
+          state.roomRole = 'owner';
+
+          await setDoc(ref, {
+            roomCode: code,
+            ownerId: state.deviceId,
+            createdAt: serverTimestamp(),
+            resetAt: serverTimestamp(),
+            ...makeRoomPayload()
+          });
+
+          subscribeRoom(code);
+          updateRoomStatus(`作成者：${code}`);
+          showToast('部屋を作り直しました');
+        } catch (error) {
+          console.error(error);
+          updateRoomStatus('作成エラー');
+          showToast('部屋を作成できませんでした');
+        }
+      }
+
       window.connectRoom = connectRoom;
+      window.createRoomFresh = createRoomFresh;
 
       function loadData() {
         try {
@@ -1143,36 +1187,64 @@
           .slice(0, 40) || 'train_lcd';
       }
 
-      window.exportCurrentFile = function exportCurrentFile() {
+      function updateDataFromEditorDraft() {
+        if (!state.draft) return;
+
+        const draftData = structuredClone(state.draft);
+        draftData.serviceJa = el('serviceJaInput').value.trim() || '各駅停車';
+        draftData.serviceEn = el('serviceEnInput').value.trim() || 'Local';
+        draftData.destinationJa = el('destJaInput').value.trim();
+        draftData.destinationEn = el('destEnInput').value.trim();
+        draftData.theme = el('themeSelect').value;
+        draftData.notices = el('noticeInput').value.split('|').map((v) => v.trim()).filter(Boolean);
+        state.data = normalizeData(draftData);
+        saveData();
+      }
+
+      window.exportCurrentFile = async function exportCurrentFile() {
         try {
-          if (state.draft) {
-            const draftData = structuredClone(state.draft);
-            draftData.serviceJa = el('serviceJaInput').value.trim() || '各駅停車';
-            draftData.serviceEn = el('serviceEnInput').value.trim() || 'Local';
-            draftData.destinationJa = el('destJaInput').value.trim();
-            draftData.destinationEn = el('destEnInput').value.trim();
-            draftData.theme = el('themeSelect').value;
-            draftData.notices = el('noticeInput').value.split('|').map((v) => v.trim()).filter(Boolean);
-            state.data = normalizeData(draftData);
-            saveData();
-          }
+          updateDataFromEditorDraft();
 
           const payload = makeSaveFilePayload();
           const json = JSON.stringify(payload, null, 2);
-          const blob = new Blob([json], { type: 'application/json' });
+          const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+          const now = new Date();
+          const date = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const fileName = `${safeFileNamePart(state.data.serviceJa)}_${date}.json`;
+
+          // PC版Chrome/Edgeなどでは、保存場所を選べる方式を優先
+          if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{
+                description: 'Train LCD save file',
+                accept: { 'application/json': ['.json'] }
+              }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            showToast('ファイルに保存しました');
+            return;
+          }
+
+          // iPhone / Safari など用のダウンロード方式
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          const date = new Date().toISOString().slice(0, 10);
           a.href = url;
-          a.download = `${safeFileNamePart(state.data.serviceJa)}_${date}.json`;
+          a.download = fileName;
+          a.rel = 'noopener';
+          a.style.display = 'none';
           document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-          showToast('ファイルに保存しました');
+          a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            a.remove();
+          }, 1500);
+          showToast('保存を開始しました');
         } catch (error) {
           console.error(error);
-          showToast('保存ファイルを作れませんでした');
+          showToast(error && error.name === 'AbortError' ? '保存をキャンセルしました' : '保存ファイルを作れませんでした');
         }
       };
 
