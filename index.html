@@ -262,7 +262,7 @@
 
     .station {
       position: absolute;
-      top: 16px; /* 少し上げて間隔を広げる */
+      top: 20px; /* 駅名と重ならないようにマルを少し下げる */
       width: 14px;
       height: 14px;
       border-radius: 50%;
@@ -297,9 +297,9 @@
 
     .moving-arrow {
       position: absolute;
-      top: 0;
+      top: 0; /* 路線図の線に縦位置を合わせる */
       width: 36px;
-      height: 36px;
+      height: 36px; /* 路線図の線の太さと同じ */
       transform: translateX(-50%);
       clip-path: polygon(0 0, 68% 0, 100% 50%, 68% 100%, 0 100%, 20% 50%);
       background: linear-gradient(#ff7d21, #c74600);
@@ -311,9 +311,9 @@
 
     .segment-arrow {
       position: absolute;
-      top: 0;
-      width: 28px;
-      height: 36px;
+      top: 9px; /* 点滅矢印も少しだけ上へ調整 */
+      width: 10px;
+      height: 10px;
       transform: translateX(-50%);
       background: var(--accent);
       clip-path: polygon(0 10%, 62% 10%, 62% 0, 100% 50%, 62% 100%, 62% 90%, 0 90%, 18% 50%);
@@ -420,6 +420,17 @@
       background: linear-gradient(90deg, var(--theme-dark), var(--theme));
       border: 1px solid #d1d5db;
     }
+    .room-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .room-status {
+      color: #4b5563;
+      font-size: 13px;
+      font-weight: 900;
+    }
 
     .station-edit-row {
       display: grid;
@@ -514,10 +525,10 @@
       .track-head { left: 18px; width: 40px; height: 30px; }
       .track-base { left: 56px; right: 84px; height: 30px; }
       .track-base::after { right: -48px; border-top-width: 15px; border-bottom-width: 15px; border-left-width: 48px; }
-      .station { width: 12px; height: 12px; top: 14px; }
+      .station { width: 12px; height: 12px; top: 18px; }
       .station-name { font-size: 12px; top: 0; max-width: 88px; }
       .moving-arrow { width: 30px; height: 30px; top: 0; }
-      .segment-arrow { width: 22px; height: 30px; top: 0; }
+      .segment-arrow { width: 8px; height: 8px; top: 17px; }
       .controls button { font-size: 13px; padding: 8px 10px; }
       .ticker-wrap { height: 36px; }
       .ticker { line-height: 36px; font-size: 14px; }
@@ -629,6 +640,18 @@
           <label>プレビュー</label>
           <div class="theme-preview"></div>
         </div>
+        <div class="field">
+          <label>部屋番号（連携用）</label>
+          <input id="roomCodeInput" placeholder="例: 1234" inputmode="numeric" />
+        </div>
+        <div class="field">
+          <label>Firestore連携</label>
+          <div class="room-controls">
+            <button type="button" onclick="connectRoom()">設定 / 入室</button>
+            <button type="button" onclick="createRoomFresh()" class="secondary">作成</button>
+            <span class="room-status" id="roomStatus">未接続</span>
+          </div>
+        </div>
       </div>
 
       <div class="field" style="margin-bottom:14px;">
@@ -641,18 +664,38 @@
       <div class="panel-actions">
         <button onclick="addStation()">駅を追加</button>
         <button onclick="saveEditor()" class="secondary">保存</button>
+        <button onclick="exportCurrentFile()" class="secondary">ファイルに保存</button>
+        <button onclick="document.getElementById('importFileInput').click()" class="secondary">ファイルを読み込み</button>
         <button onclick="closeEditor()" class="secondary">閉じる</button>
+        <input id="importFileInput" type="file" accept="application/json,.json" style="display:none" onchange="importFromFile(event)" />
       </div>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
     (() => {
       const STORAGE_KEY = 'train_lcd_complete_final_v1';
+      const DEVICE_ID_KEY = 'train_lcd_device_id_v1';
       const NORMAL_PHASE_SECONDS = 8;
       const GUIDE_PHASE_SECONDS = 7; // 駅あんないを表示する秒数（移動時間に含める）
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyC9ygh6HjX5mK1e5ZBnEWnLQCEjRMKIEWA",
+        authDomain: "sinzo-3f972.firebaseapp.com",
+        databaseURL: "https://sinzo-3f972-default-rtdb.firebaseio.com",
+        projectId: "sinzo-3f972",
+        storageBucket: "sinzo-3f972.firebasestorage.app",
+        messagingSenderId: "1058985227031",
+        appId: "1:1058985227031:web:6b152911e917903910bd52"
+      };
+
+      const firebaseApp = initializeApp(firebaseConfig);
+      const db = getFirestore(firebaseApp);
 
       const THEMES = {
         blue:   { theme: '#1f33ff', dark: '#1626cc', accent: '#ff6a00', soft: '#ffd4b3' },
@@ -929,10 +972,184 @@
         draft: null,
         taps: [],
         phaseTimer: null,
-        langTimer: null
+        langTimer: null,
+        deviceId: getDeviceId(),
+        roomCode: '',
+        roomRole: 'none', // none | owner | viewer
+        roomUnsubscribe: null,
+        applyingRemote: false,
+        lastSyncAt: 0
       };
 
       const el = (id) => document.getElementById(id);
+
+      function getDeviceId() {
+        try {
+          let id = localStorage.getItem(DEVICE_ID_KEY);
+          if (!id) {
+            id = `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            localStorage.setItem(DEVICE_ID_KEY, id);
+          }
+          return id;
+        } catch {
+          return `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        }
+      }
+
+      function cleanRoomCode(value) {
+        return String(value || '').trim().replace(/[^0-9A-Za-z_-]/g, '').slice(0, 32);
+      }
+
+      function roomDocRef(code = state.roomCode) {
+        return doc(db, 'train_lcd_rooms', code);
+      }
+
+      function updateRoomStatus(text) {
+        const status = el('roomStatus');
+        if (status) status.textContent = text;
+      }
+
+      function makeRoomPayload() {
+        return {
+          data: state.data,
+          currentIndex: state.currentIndex,
+          phase: state.phase,
+          remainSeconds: state.remainSeconds,
+          currentLang: state.currentLang,
+          updatedBy: state.deviceId,
+          updatedAt: serverTimestamp()
+        };
+      }
+
+      async function syncRoomNow(force = false) {
+        if (!state.roomCode || state.roomRole !== 'owner' || state.applyingRemote) return;
+        const now = Date.now();
+        if (!force && now - state.lastSyncAt < 700) return;
+        state.lastSyncAt = now;
+        try {
+          await updateDoc(roomDocRef(), makeRoomPayload());
+        } catch (error) {
+          console.warn('Firestore sync failed', error);
+          updateRoomStatus('同期エラー');
+        }
+      }
+
+      function applyRemoteRoom(room) {
+        if (!room || room.updatedBy === state.deviceId) return;
+        state.applyingRemote = true;
+        try {
+          if (room.data) state.data = normalizeData(room.data);
+          state.currentIndex = Math.min(Math.max(0, Number(room.currentIndex) || 0), stations().length - 1);
+          if (['stop', 'guide', 'move'].includes(room.phase)) state.phase = room.phase;
+          state.remainSeconds = Math.max(0, Number(room.remainSeconds) || 0);
+          state.currentLang = room.currentLang === 'en' ? 'en' : 'ja';
+          saveData();
+          renderAll();
+        } finally {
+          state.applyingRemote = false;
+        }
+      }
+
+      function subscribeRoom(code) {
+        if (state.roomUnsubscribe) state.roomUnsubscribe();
+        state.roomUnsubscribe = onSnapshot(roomDocRef(code), (snapshot) => {
+          if (!snapshot.exists()) {
+            updateRoomStatus('部屋なし');
+            return;
+          }
+          const room = snapshot.data();
+          state.roomRole = room.ownerId === state.deviceId ? 'owner' : 'viewer';
+          updateRoomStatus(state.roomRole === 'owner' ? `作成者：${code}` : `入室中：${code}`);
+          applyRemoteRoom(room);
+        }, (error) => {
+          console.warn('Firestore watch failed', error);
+          updateRoomStatus('接続エラー');
+        });
+      }
+
+      async function connectRoom() {
+        const code = cleanRoomCode(el('roomCodeInput')?.value);
+        if (!code) {
+          showToast('部屋番号を入力してください');
+          return;
+        }
+
+        try {
+          const ref = roomDocRef(code);
+          const snap = await getDoc(ref);
+          state.roomCode = code;
+
+          if (snap.exists()) {
+            const room = snap.data();
+            state.roomRole = room.ownerId === state.deviceId ? 'owner' : 'viewer';
+            applyRemoteRoom(room);
+            subscribeRoom(code);
+            updateRoomStatus(state.roomRole === 'owner' ? `作成者：${code}` : `入室中：${code}`);
+            showToast(state.roomRole === 'owner' ? '部屋に再接続しました' : '部屋に入室しました');
+            return;
+          }
+
+          state.roomRole = 'owner';
+          await setDoc(ref, {
+            roomCode: code,
+            ownerId: state.deviceId,
+            createdAt: serverTimestamp(),
+            ...makeRoomPayload()
+          });
+          subscribeRoom(code);
+          updateRoomStatus(`作成者：${code}`);
+          showToast('部屋を作成しました');
+        } catch (error) {
+          console.error(error);
+          updateRoomStatus('接続エラー');
+          showToast('Firestoreに接続できませんでした');
+        }
+      }
+
+      async function createRoomFresh() {
+        const code = cleanRoomCode(el('roomCodeInput')?.value);
+        if (!code) {
+          showToast('部屋番号を入力してください');
+          return;
+        }
+
+        try {
+          const ref = roomDocRef(code);
+
+          // すでに部屋を監視していたら、一度止める
+          if (state.roomUnsubscribe) {
+            state.roomUnsubscribe();
+            state.roomUnsubscribe = null;
+          }
+
+          updateRoomStatus('作成中...');
+
+          // 入力された部屋番号の部屋をいったん削除して、新しく作り直す
+          await deleteDoc(ref).catch(() => {});
+
+          state.roomCode = code;
+          state.roomRole = 'owner';
+
+          await setDoc(ref, {
+            roomCode: code,
+            ownerId: state.deviceId,
+            createdAt: serverTimestamp(),
+            resetAt: serverTimestamp(),
+            ...makeRoomPayload()
+          });
+
+          subscribeRoom(code);
+          updateRoomStatus(`作成者：${code}`);
+          showToast('部屋を作り直しました');
+        } catch (error) {
+          console.error(error);
+          updateRoomStatus('作成エラー');
+          showToast('部屋を作成できませんでした');
+        }
+      }
+
+      window.connectRoom = connectRoom;
+      window.createRoomFresh = createRoomFresh;
 
       function loadData() {
         try {
@@ -947,6 +1164,149 @@
       function saveData() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
       }
+
+      function makeSaveFilePayload() {
+        return {
+          fileType: 'train-lcd-save',
+          version: 1,
+          savedAt: new Date().toISOString(),
+          data: state.data,
+          currentIndex: state.currentIndex,
+          phase: state.phase,
+          remainSeconds: state.remainSeconds,
+          currentLang: state.currentLang,
+          autoEnabled: state.autoEnabled
+        };
+      }
+
+      function safeFileNamePart(text) {
+        return String(text || 'train_lcd')
+          .trim()
+          .replace(/[\\/:*?"<>|]/g, '_')
+          .replace(/\s+/g, '_')
+          .slice(0, 40) || 'train_lcd';
+      }
+
+      function updateDataFromEditorDraft() {
+        if (!state.draft) return;
+
+        const draftData = structuredClone(state.draft);
+        draftData.serviceJa = el('serviceJaInput').value.trim() || '各駅停車';
+        draftData.serviceEn = el('serviceEnInput').value.trim() || 'Local';
+        draftData.destinationJa = el('destJaInput').value.trim();
+        draftData.destinationEn = el('destEnInput').value.trim();
+        draftData.theme = el('themeSelect').value;
+        draftData.notices = el('noticeInput').value.split('|').map((v) => v.trim()).filter(Boolean);
+        state.data = normalizeData(draftData);
+        saveData();
+      }
+
+      window.exportCurrentFile = async function exportCurrentFile() {
+        try {
+          updateDataFromEditorDraft();
+
+          const payload = makeSaveFilePayload();
+          const json = JSON.stringify(payload, null, 2);
+          const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+          const now = new Date();
+          const date = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const fileName = `${safeFileNamePart(state.data.serviceJa)}_${date}.json`;
+
+          // PC版Chrome/Edgeなどでは、保存場所を選べる方式を優先
+          if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{
+                description: 'Train LCD save file',
+                accept: { 'application/json': ['.json'] }
+              }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            showToast('ファイルに保存しました');
+            return;
+          }
+
+          // iPhone / Safari など用のダウンロード方式
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.rel = 'noopener';
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            a.remove();
+          }, 1500);
+          showToast('保存を開始しました');
+        } catch (error) {
+          console.error(error);
+          showToast(error && error.name === 'AbortError' ? '保存をキャンセルしました' : '保存ファイルを作れませんでした');
+        }
+      };
+
+      function applySaveFilePayload(payload) {
+        const source = payload && payload.data ? payload : { data: payload };
+        if (!source || !source.data || !Array.isArray(source.data.stations)) {
+          throw new Error('invalid save file');
+        }
+
+        state.data = normalizeData(source.data);
+        state.currentIndex = Math.min(
+          Math.max(0, Number(source.currentIndex) || 0),
+          stations().length - 1
+        );
+        state.phase = ['stop', 'guide', 'move'].includes(source.phase) ? source.phase : 'stop';
+        state.remainSeconds = Math.max(0, Number(source.remainSeconds) || 0);
+        if (!state.remainSeconds) {
+          if (state.phase === 'stop') state.remainSeconds = currentStation().dwell;
+          if (state.phase === 'guide' || state.phase === 'move') state.remainSeconds = currentStation().travel;
+        }
+        state.currentLang = source.currentLang === 'en' ? 'en' : 'ja';
+        state.autoEnabled = source.autoEnabled === false ? false : true;
+
+        saveData();
+        renderAll();
+        if (state.draft) {
+          state.draft = structuredClone(state.data);
+          el('serviceJaInput').value = state.draft.serviceJa;
+          el('serviceEnInput').value = state.draft.serviceEn;
+          el('destJaInput').value = state.draft.destinationJa;
+          el('destEnInput').value = state.draft.destinationEn;
+          el('themeSelect').value = state.draft.theme;
+          el('noticeInput').value = state.draft.notices.join(' | ');
+          renderEditorStations();
+        }
+        syncRoomNow(true);
+      }
+
+      window.importFromFile = function importFromFile(event) {
+        const input = event.target;
+        const file = input.files && input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const payload = JSON.parse(String(reader.result || '{}'));
+            applySaveFilePayload(payload);
+            showToast('ファイルを読み込みました');
+          } catch (error) {
+            console.error(error);
+            showToast('読み込みできないファイルです');
+          } finally {
+            input.value = '';
+          }
+        };
+        reader.onerror = () => {
+          showToast('ファイルを読めませんでした');
+          input.value = '';
+        };
+        reader.readAsText(file, 'utf-8');
+      };
 
       function normalizeData(data) {
         const out = structuredClone(defaultData);
@@ -1056,15 +1416,12 @@
         arrivalRow.classList.toggle('hidden', !showArrival);
 
         if (state.currentLang === 'ja') {
-          // 停車中: ただいま
-          // 走行中・駅あんない中: 到着時間が10秒以上なら「次は」、10秒未満なら「まもなく」
           let labelJa = 'まもなく';
           if (state.phase === 'stop') {
             labelJa = 'ただいま';
           } else if (timeInfo.arrival >= 10) {
             labelJa = '次は';
           }
-
           el('leftLabel').textContent = labelJa;
           el('stationSub').textContent = '';
           el('stationMain').textContent = s.ja;
@@ -1073,14 +1430,12 @@
           el('stopTimeValue').textContent = formatTime(timeInfo.stop, 'ja');
           el('arrivalTimeValue').textContent = formatTime(timeInfo.arrival, 'ja');
         } else {
-          // Englishも同じ考え方で、10秒以上ならNext、10秒未満ならArriving
           let labelEn = 'Arriving';
           if (state.phase === 'stop') {
             labelEn = 'Now';
           } else if (timeInfo.arrival >= 10) {
             labelEn = 'Next';
           }
-
           el('leftLabel').textContent = labelEn;
           el('stationSub').textContent = s.ja;
           el('stationMain').textContent = s.en;
@@ -1214,9 +1569,11 @@
         // guide から move に切り替える時は、残り秒数をリセットしない
         if (phase === 'move' && state.remainSeconds <= 0) state.remainSeconds = currentStation().travel;
         renderAll();
+        syncRoomNow(true);
       }
 
       function tick() {
+        if (state.roomRole === 'viewer') return;
         if (!state.autoEnabled) return;
         state.remainSeconds -= 1;
 
@@ -1226,6 +1583,7 @@
           } else {
             renderMain();
             renderRoute();
+            syncRoomNow();
           }
           return;
         }
@@ -1241,9 +1599,11 @@
           if (state.remainSeconds <= guideEndAt) {
             state.phase = 'move';
             renderAll();
+            syncRoomNow(true);
           } else {
             renderMain();
             renderRoute();
+            syncRoomNow();
           }
           return;
         }
@@ -1255,6 +1615,7 @@
           } else {
             renderMain();
             renderRoute();
+            syncRoomNow();
           }
         }
       }
@@ -1267,9 +1628,12 @@
       function startLanguageCycle() {
         clearTimeout(state.langTimer);
         function loop(lang) {
-          state.currentLang = lang;
-          renderAll();
-          const ms = lang === 'ja' ? 4000 : 3000;
+          if (state.roomRole !== 'viewer') {
+            state.currentLang = lang;
+            renderAll();
+            syncRoomNow();
+          }
+          const ms = 3500; // 3.5秒おきに言語切り替え
           state.langTimer = setTimeout(() => loop(lang === 'ja' ? 'en' : 'ja'), ms);
         }
 
@@ -1393,6 +1757,8 @@
         el('destJaInput').value = state.draft.destinationJa;
         el('destEnInput').value = state.draft.destinationEn;
         el('themeSelect').value = state.draft.theme;
+        if (el('roomCodeInput')) el('roomCodeInput').value = state.roomCode;
+        updateRoomStatus(state.roomCode ? (state.roomRole === 'owner' ? `作成者：${state.roomCode}` : `入室中：${state.roomCode}`) : '未接続');
         el('noticeInput').value = state.draft.notices.join(' | ');
         renderEditorStations();
         el('editor').classList.add('show');
