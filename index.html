@@ -458,6 +458,65 @@
       margin-top: 12px;
     }
 
+
+    .broadcast-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      background: #111827;
+      color: #fff;
+      text-align: center;
+    }
+    .broadcast-overlay.show {
+      display: flex;
+    }
+    .broadcast-box {
+      width: min(1100px, 96vw);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 26px;
+    }
+    .broadcast-title {
+      font-size: clamp(48px, 8vw, 118px);
+      line-height: 1.05;
+      font-weight: 1000;
+      letter-spacing: .02em;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .broadcast-detail {
+      font-size: clamp(24px, 4vw, 56px);
+      line-height: 1.25;
+      font-weight: 900;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+    }
+    .broadcast-tools {
+      border: 2px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 12px;
+      margin: 12px 0 14px;
+      background: #f9fafb;
+    }
+    .broadcast-tools h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .broadcast-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: end;
+      margin-top: 8px;
+    }
+
     .toast {
       position: fixed;
       left: 50%;
@@ -659,6 +718,37 @@
         <textarea id="noticeInput" rows="3"></textarea>
       </div>
 
+
+      <div class="broadcast-tools">
+        <h3>簡易情報伝達機（部屋の作成者のみ送信）</h3>
+        <div class="grid2">
+          <div class="field">
+            <label>タイトル（中央に大きく表示）</label>
+            <input id="broadcastTitleInput" placeholder="例：運転見合わせ" />
+          </div>
+          <div class="field">
+            <label>背景色</label>
+            <select id="broadcastBgInput">
+              <option value="#111827">黒</option>
+              <option value="#dc2626">赤</option>
+              <option value="#f59e0b">黄</option>
+              <option value="#2563eb">青</option>
+              <option value="#16a34a">緑</option>
+              <option value="#7c3aed">紫</option>
+              <option value="#ffffff">白</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>詳細（下に中くらいで表示）</label>
+          <textarea id="broadcastDetailInput" rows="3" placeholder="例：安全確認のため、しばらくお待ちください。"></textarea>
+        </div>
+        <div class="broadcast-actions">
+          <button type="button" onclick="sendBroadcastMessage()">送信</button>
+          <button type="button" onclick="previewBroadcastMessage()" class="secondary">10秒プレビュー</button>
+        </div>
+      </div>
+
       <div id="stationList"></div>
 
       <div class="panel-actions">
@@ -669,6 +759,14 @@
         <button onclick="closeEditor()" class="secondary">閉じる</button>
         <input id="importFileInput" type="file" accept="application/json,.json" style="display:none" onchange="importFromFile(event)" />
       </div>
+    </div>
+  </div>
+
+
+  <div class="broadcast-overlay" id="broadcastOverlay">
+    <div class="broadcast-box">
+      <div class="broadcast-title" id="broadcastTitle"></div>
+      <div class="broadcast-detail" id="broadcastDetail"></div>
     </div>
   </div>
 
@@ -978,7 +1076,9 @@
         roomRole: 'none', // none | owner | viewer
         roomUnsubscribe: null,
         applyingRemote: false,
-        lastSyncAt: 0
+        lastSyncAt: 0,
+        broadcastTimer: null,
+        lastBroadcastId: null
       };
 
       const el = (id) => document.getElementById(id);
@@ -1035,7 +1135,9 @@
       }
 
       function applyRemoteRoom(room) {
-        if (!room || room.updatedBy === state.deviceId) return;
+        if (!room) return;
+        handleRemoteBroadcast(room);
+        if (room.updatedBy === state.deviceId) return;
         state.applyingRemote = true;
         try {
           if (room.data) state.data = normalizeData(room.data);
@@ -1135,6 +1237,8 @@
             ownerId: state.deviceId,
             createdAt: serverTimestamp(),
             resetAt: serverTimestamp(),
+            broadcastMessage: null,
+            broadcastUpdatedAt: serverTimestamp(),
             ...makeRoomPayload()
           });
 
@@ -1538,6 +1642,97 @@
         const text = notices.join('　◆　');
         el('tickerText').textContent = `${text}　◆　${text}`;
       }
+
+
+      function contrastColorForBackground(bg) {
+        const hex = String(bg || '#111827').replace('#', '');
+        if (hex.length !== 6) return '#fff';
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness > 160 ? '#111827' : '#fff';
+      }
+
+      function showBroadcastOverlay(message) {
+        if (!message) return;
+        const overlay = el('broadcastOverlay');
+        if (!overlay) return;
+
+        const title = String(message.title || '').trim() || 'お知らせ';
+        const detail = String(message.detail || '').trim();
+        const bg = String(message.bg || '#111827');
+
+        overlay.style.background = bg;
+        overlay.style.color = contrastColorForBackground(bg);
+        el('broadcastTitle').textContent = title;
+        el('broadcastDetail').textContent = detail;
+        overlay.classList.add('show');
+
+        clearTimeout(state.broadcastTimer);
+        state.broadcastTimer = setTimeout(() => {
+          overlay.classList.remove('show');
+        }, 10000);
+      }
+
+      function handleRemoteBroadcast(room) {
+        const message = room && room.broadcastMessage;
+        if (!message || !message.id) return;
+        if (state.lastBroadcastId === message.id) return;
+
+        state.lastBroadcastId = message.id;
+        showBroadcastOverlay(message);
+      }
+
+      window.previewBroadcastMessage = function previewBroadcastMessage() {
+        const title = el('broadcastTitleInput')?.value || 'お知らせ';
+        const detail = el('broadcastDetailInput')?.value || '';
+        const bg = el('broadcastBgInput')?.value || '#111827';
+        showBroadcastOverlay({ title, detail, bg, id: `preview_${Date.now()}` });
+      };
+
+      window.sendBroadcastMessage = async function sendBroadcastMessage() {
+        if (!state.roomCode) {
+          showToast('先に部屋へ接続してください');
+          return;
+        }
+        if (state.roomRole !== 'owner') {
+          showToast('送信できるのは部屋の作成者だけです');
+          return;
+        }
+
+        const title = String(el('broadcastTitleInput')?.value || '').trim();
+        const detail = String(el('broadcastDetailInput')?.value || '').trim();
+        const bg = String(el('broadcastBgInput')?.value || '#111827');
+
+        if (!title && !detail) {
+          showToast('タイトルか詳細を入力してください');
+          return;
+        }
+
+        const message = {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          title: title || 'お知らせ',
+          detail,
+          bg,
+          sentBy: state.deviceId,
+          sentAtMillis: Date.now()
+        };
+
+        try {
+          await updateDoc(roomDocRef(), {
+            broadcastMessage: message,
+            broadcastUpdatedAt: serverTimestamp()
+          });
+          state.lastBroadcastId = message.id;
+          showBroadcastOverlay(message);
+          showToast('送信しました');
+        } catch (error) {
+          console.error(error);
+          showToast('送信できませんでした');
+        }
+      };
+
 
       function renderControls() {
         el('controls').classList.toggle('show', state.controlsUnlocked);
