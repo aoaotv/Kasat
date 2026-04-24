@@ -663,7 +663,10 @@
       <div class="panel-actions">
         <button onclick="addStation()">駅を追加</button>
         <button onclick="saveEditor()" class="secondary">保存</button>
+        <button onclick="exportCurrentFile()" class="secondary">ファイルに保存</button>
+        <button onclick="document.getElementById('importFileInput').click()" class="secondary">ファイルを読み込み</button>
         <button onclick="closeEditor()" class="secondary">閉じる</button>
+        <input id="importFileInput" type="file" accept="application/json,.json" style="display:none" onchange="importFromFile(event)" />
       </div>
     </div>
   </div>
@@ -1117,6 +1120,121 @@
       function saveData() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
       }
+
+      function makeSaveFilePayload() {
+        return {
+          fileType: 'train-lcd-save',
+          version: 1,
+          savedAt: new Date().toISOString(),
+          data: state.data,
+          currentIndex: state.currentIndex,
+          phase: state.phase,
+          remainSeconds: state.remainSeconds,
+          currentLang: state.currentLang,
+          autoEnabled: state.autoEnabled
+        };
+      }
+
+      function safeFileNamePart(text) {
+        return String(text || 'train_lcd')
+          .trim()
+          .replace(/[\\/:*?"<>|]/g, '_')
+          .replace(/\s+/g, '_')
+          .slice(0, 40) || 'train_lcd';
+      }
+
+      window.exportCurrentFile = function exportCurrentFile() {
+        try {
+          if (state.draft) {
+            const draftData = structuredClone(state.draft);
+            draftData.serviceJa = el('serviceJaInput').value.trim() || '各駅停車';
+            draftData.serviceEn = el('serviceEnInput').value.trim() || 'Local';
+            draftData.destinationJa = el('destJaInput').value.trim();
+            draftData.destinationEn = el('destEnInput').value.trim();
+            draftData.theme = el('themeSelect').value;
+            draftData.notices = el('noticeInput').value.split('|').map((v) => v.trim()).filter(Boolean);
+            state.data = normalizeData(draftData);
+            saveData();
+          }
+
+          const payload = makeSaveFilePayload();
+          const json = JSON.stringify(payload, null, 2);
+          const blob = new Blob([json], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const date = new Date().toISOString().slice(0, 10);
+          a.href = url;
+          a.download = `${safeFileNamePart(state.data.serviceJa)}_${date}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          showToast('ファイルに保存しました');
+        } catch (error) {
+          console.error(error);
+          showToast('保存ファイルを作れませんでした');
+        }
+      };
+
+      function applySaveFilePayload(payload) {
+        const source = payload && payload.data ? payload : { data: payload };
+        if (!source || !source.data || !Array.isArray(source.data.stations)) {
+          throw new Error('invalid save file');
+        }
+
+        state.data = normalizeData(source.data);
+        state.currentIndex = Math.min(
+          Math.max(0, Number(source.currentIndex) || 0),
+          stations().length - 1
+        );
+        state.phase = ['stop', 'guide', 'move'].includes(source.phase) ? source.phase : 'stop';
+        state.remainSeconds = Math.max(0, Number(source.remainSeconds) || 0);
+        if (!state.remainSeconds) {
+          if (state.phase === 'stop') state.remainSeconds = currentStation().dwell;
+          if (state.phase === 'guide' || state.phase === 'move') state.remainSeconds = currentStation().travel;
+        }
+        state.currentLang = source.currentLang === 'en' ? 'en' : 'ja';
+        state.autoEnabled = source.autoEnabled === false ? false : true;
+
+        saveData();
+        renderAll();
+        if (state.draft) {
+          state.draft = structuredClone(state.data);
+          el('serviceJaInput').value = state.draft.serviceJa;
+          el('serviceEnInput').value = state.draft.serviceEn;
+          el('destJaInput').value = state.draft.destinationJa;
+          el('destEnInput').value = state.draft.destinationEn;
+          el('themeSelect').value = state.draft.theme;
+          el('noticeInput').value = state.draft.notices.join(' | ');
+          renderEditorStations();
+        }
+        syncRoomNow(true);
+      }
+
+      window.importFromFile = function importFromFile(event) {
+        const input = event.target;
+        const file = input.files && input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const payload = JSON.parse(String(reader.result || '{}'));
+            applySaveFilePayload(payload);
+            showToast('ファイルを読み込みました');
+          } catch (error) {
+            console.error(error);
+            showToast('読み込みできないファイルです');
+          } finally {
+            input.value = '';
+          }
+        };
+        reader.onerror = () => {
+          showToast('ファイルを読めませんでした');
+          input.value = '';
+        };
+        reader.readAsText(file, 'utf-8');
+      };
 
       function normalizeData(data) {
         const out = structuredClone(defaultData);
