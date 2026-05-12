@@ -3,172 +3,300 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube モーダル再生</title>
+<title>YouTube風プレイヤー</title>
 
 <style>
-body {
-  margin: 0;
-  background: #111;
-  color: white;
-  font-family: sans-serif;
+body{
+  margin:0;
+  background:#0f0f0f;
+  color:white;
+  font-family:Arial,sans-serif;
 }
-
-h1 {
-  text-align: center;
-  padding: 20px;
+header{
+  position:sticky;
+  top:0;
+  z-index:100;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  gap:15px;
+  padding:10px 16px;
+  border-bottom:1px solid #222;
 }
-
-.search {
-  text-align: center;
-  margin-bottom: 20px;
+.logo{
+  font-size:22px;
+  font-weight:bold;
+  color:white;
 }
-
-input {
-  width: 65%;
-  max-width: 500px;
-  padding: 12px;
-  border-radius: 20px;
-  border: none;
-  font-size: 16px;
+.logo span{color:red}
+.searchBox{
+  flex:1;
+  display:flex;
+  justify-content:center;
 }
-
-button {
-  padding: 12px 18px;
-  border: none;
-  border-radius: 20px;
-  background: red;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
+.searchBox input{
+  width:70%;
+  max-width:600px;
+  padding:12px;
+  border-radius:20px 0 0 20px;
+  border:1px solid #333;
+  background:#121212;
+  color:white;
+  font-size:16px;
 }
-
-.movie_list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 20px;
-  padding: 20px;
+.searchBox button{
+  padding:12px 20px;
+  border-radius:0 20px 20px 0;
+  border:1px solid #333;
+  background:#222;
+  color:white;
+  cursor:pointer;
 }
-
-.movie_item {
-  background: #222;
-  border-radius: 14px;
-  overflow: hidden;
-  cursor: pointer;
+.layout{
+  display:flex;
 }
-
-.movie_item:hover {
-  background: #333;
+.sidebar{
+  width:210px;
+  padding:15px;
+  border-right:1px solid #222;
 }
-
-.movie_img img {
-  width: 100%;
-  display: block;
+.sidebar button{
+  display:block;
+  width:100%;
+  margin-bottom:10px;
+  padding:12px;
+  background:#222;
+  color:white;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  text-align:left;
 }
-
-.title {
-  padding: 12px;
-  font-weight: bold;
-  line-height: 1.5;
+.sidebar button:hover{
+  background:#333;
 }
-
-.badge {
-  display: inline-block;
-  margin: 0 12px 12px;
-  padding: 4px 8px;
-  background: red;
-  border-radius: 10px;
-  font-size: 12px;
+.main{
+  flex:1;
 }
-
-/* モーダル */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 9999;
-  inset: 0;
-  background: rgba(0,0,0,0.85);
-  align-items: center;
-  justify-content: center;
+.playerArea{
+  padding:20px;
+  display:none;
 }
-
-.modal.active {
-  display: flex;
+.playerArea.active{
+  display:block;
 }
-
-.modal_content {
-  width: 90%;
-  max-width: 900px;
-  position: relative;
+iframe{
+  width:100%;
+  max-width:950px;
+  height:520px;
+  border:0;
+  border-radius:14px;
+  background:black;
 }
-
-.modal_content iframe {
-  width: 100%;
-  height: 500px;
-  border: none;
-  border-radius: 12px;
-  background: black;
+#nowTitle{
+  max-width:950px;
+  font-size:20px;
+  font-weight:bold;
+  margin-top:10px;
 }
-
-.close {
-  position: absolute;
-  top: -45px;
-  right: 0;
-  font-size: 36px;
-  cursor: pointer;
+.sectionTitle{
+  margin:20px;
 }
-
-@media (max-width: 700px) {
-  .modal_content iframe {
-    height: 250px;
-  }
-
-  input {
-    width: 85%;
-    margin-bottom: 8px;
-  }
+.videoGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:18px;
+  padding:20px;
+}
+.card{
+  cursor:pointer;
+}
+.card img{
+  width:100%;
+  border-radius:12px;
+  background:#222;
+}
+.cardTitle{
+  margin-top:8px;
+  font-size:14px;
+  line-height:1.4;
+}
+.badge{
+  display:inline-block;
+  margin-top:6px;
+  padding:3px 7px;
+  background:red;
+  border-radius:8px;
+  font-size:12px;
+}
+.historyBox{
+  padding:20px;
+  display:none;
+}
+.historyBox.active{
+  display:block;
+}
+.historyItem{
+  background:#1f1f1f;
+  padding:12px;
+  border-radius:10px;
+  margin-bottom:10px;
+  cursor:pointer;
+}
+.shortsView{
+  display:none;
+  height:calc(100vh - 60px);
+  overflow-y:scroll;
+  scroll-snap-type:y mandatory;
+}
+.shortsView.active{
+  display:block;
+}
+.shortItem{
+  height:calc(100vh - 60px);
+  scroll-snap-align:start;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+.shortBox{
+  width:340px;
+  height:600px;
+  max-width:95vw;
+  max-height:85vh;
+  background:black;
+  border-radius:20px;
+  overflow:hidden;
+}
+.shortBox iframe{
+  width:100%;
+  height:100%;
+  border-radius:20px;
+}
+@media(max-width:800px){
+  .sidebar{display:none}
+  header{flex-wrap:wrap}
+  .searchBox{width:100%}
+  .searchBox input{width:75%}
+  iframe{height:260px}
 }
 </style>
 </head>
 
 <body>
 
-<h1>YouTube検索プレイヤー</h1>
-
-<div class="search">
-  <input id="searchInput" placeholder="動画・ショートを検索">
-  <button onclick="searchVideos()">検索</button>
-</div>
-
-<ul id="movieList" class="movie_list"></ul>
-
-<div id="modal" class="modal" onclick="closeModal(event)">
-  <div class="modal_content">
-    <span class="close" onclick="closePlayer()">×</span>
-    <div id="playerArea"></div>
+<header>
+  <div class="logo"><span>▶</span> MyTube</div>
+  <div class="searchBox">
+    <input id="searchInput" placeholder="検索">
+    <button onclick="searchVideos()">検索</button>
   </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <button onclick="showHome()">ホーム</button>
+    <button onclick="showShorts()">Shorts</button>
+    <button onclick="showHistory()">検索履歴</button>
+    <button onclick="clearHistory()">履歴削除</button>
+  </nav>
+
+  <main class="main">
+    <section id="playerArea" class="playerArea">
+      <div id="playerBox"></div>
+      <div id="nowTitle"></div>
+    </section>
+
+    <h2 id="sectionTitle" class="sectionTitle">おすすめ動画</h2>
+    <section id="videoGrid" class="videoGrid"></section>
+
+    <section id="historyBox" class="historyBox"></section>
+
+    <section id="shortsView" class="shortsView"></section>
+  </main>
 </div>
 
 <script>
-const API_KEY = "AIzaSyBf5AkiXVgmQQwiP9HlfG3MzvUgIlR2vYI";
+const API_KEY = "ここにAPIキー";
+
+let videos = [];
+let shorts = [];
 
 window.onload = () => {
-  fetchVideos("人気 動画 shorts 音楽 ゲーム");
+  loadRecommended();
 };
 
-async function searchVideos() {
-  const query = document.getElementById("searchInput").value.trim();
+function getHistory(){
+  return JSON.parse(localStorage.getItem("searchHistory") || "[]");
+}
 
-  if (!query) {
+function saveSearch(word){
+  let history = getHistory();
+  history = history.filter(x => x !== word);
+  history.unshift(word);
+  history = history.slice(0,10);
+  localStorage.setItem("searchHistory", JSON.stringify(history));
+}
+
+function getWatchData(){
+  return JSON.parse(localStorage.getItem("watchData") || "[]");
+}
+
+function saveWatch(title){
+  let data = getWatchData();
+  data.unshift(title);
+  data = data.slice(0,20);
+  localStorage.setItem("watchData", JSON.stringify(data));
+}
+
+function makeRecommendWord(){
+  const watched = getWatchData().join(" ");
+  const history = getHistory().join(" ");
+
+  if(watched || history){
+    return watched + " " + history;
+  }
+
+  return "人気 動画 音楽 ゲーム shorts";
+}
+
+function hideAll(){
+  document.getElementById("videoGrid").style.display = "none";
+  document.getElementById("historyBox").classList.remove("active");
+  document.getElementById("shortsView").classList.remove("active");
+}
+
+function showHome(){
+  hideAll();
+  document.getElementById("videoGrid").style.display = "grid";
+  document.getElementById("sectionTitle").style.display = "block";
+  loadRecommended();
+}
+
+function loadRecommended(){
+  document.getElementById("sectionTitle").textContent = "あなたへのおすすめ";
+  fetchVideos(makeRecommendWord());
+}
+
+async function searchVideos(){
+  const q = document.getElementById("searchInput").value.trim();
+  if(!q){
     alert("検索ワードを入力してね");
     return;
   }
 
-  fetchVideos(query + " shorts");
+  saveSearch(q);
+  hideAll();
+  document.getElementById("videoGrid").style.display = "grid";
+  document.getElementById("sectionTitle").style.display = "block";
+  document.getElementById("sectionTitle").textContent = "検索結果：" + q;
+
+  fetchVideos(q + " shorts");
 }
 
-async function fetchVideos(query) {
-  const movieList = document.getElementById("movieList");
-  movieList.innerHTML = "<p>読み込み中...</p>";
+async function fetchVideos(query){
+  const grid = document.getElementById("videoGrid");
+  grid.innerHTML = "<p>読み込み中...</p>";
 
   const url =
     "https://www.googleapis.com/youtube/v3/search" +
@@ -176,20 +304,22 @@ async function fetchVideos(query) {
     "&type=video" +
     "&videoEmbeddable=true" +
     "&safeSearch=moderate" +
-    "&maxResults=24" +
+    "&maxResults=30" +
     "&q=" + encodeURIComponent(query) +
     "&key=" + API_KEY;
 
-  try {
+  try{
     const res = await fetch(url);
     const data = await res.json();
 
-    if (data.error) {
-      movieList.innerHTML = "<p>APIエラー：" + data.error.message + "</p>";
+    if(data.error){
+      grid.innerHTML = "<p>APIエラー：" + data.error.message + "</p>";
       return;
     }
 
-    movieList.innerHTML = "";
+    videos = [];
+    shorts = [];
+    grid.innerHTML = "";
 
     data.items.forEach(item => {
       const videoId = item.id.videoId;
@@ -204,59 +334,126 @@ async function fetchVideos(query) {
         title.includes("ショート") ||
         title.includes("#shorts");
 
-      const li = document.createElement("li");
-      li.className = "movie_item";
+      const video = {videoId,title,thumb,isShort};
+      videos.push(video);
 
-      li.innerHTML = `
-        <figure class="movie_img">
-          <img src="${thumb}" alt="${title}">
-        </figure>
-        <p class="title">${title}</p>
+      if(isShort) shorts.push(video);
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <img src="${thumb}">
+        <div class="cardTitle">${title}</div>
         ${isShort ? '<span class="badge">Shorts</span>' : ''}
       `;
 
-      li.onclick = () => openPlayer(videoId);
+      card.onclick = () => playVideo(video);
 
-      movieList.appendChild(li);
+      grid.appendChild(card);
     });
 
-  } catch (e) {
-    movieList.innerHTML = "<p>読み込み失敗</p>";
-    console.error(e);
+    if(shorts.length === 0){
+      shorts = videos;
+    }
+
+  }catch(e){
+    grid.innerHTML = "<p>読み込みに失敗しました</p>";
   }
 }
 
-function openPlayer(videoId) {
-  const modal = document.getElementById("modal");
-  const playerArea = document.getElementById("playerArea");
+function playVideo(video){
+  saveWatch(video.title);
 
-  playerArea.innerHTML = `
+  document.getElementById("playerArea").classList.add("active");
+  document.getElementById("playerBox").innerHTML = `
     <iframe
-      src="https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1&playsinline=1"
+      src="https://www.youtube.com/embed/${video.videoId}?rel=0&autoplay=1&playsinline=1"
       title="YouTube video player"
-      frameborder="0"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       referrerpolicy="strict-origin-when-cross-origin"
       allowfullscreen>
     </iframe>
   `;
 
-  modal.classList.add("active");
+  document.getElementById("nowTitle").textContent = video.title;
+
+  window.scrollTo({top:0,behavior:"smooth"});
+
+  setTimeout(() => {
+    loadRecommended();
+  }, 1500);
 }
 
-function closePlayer() {
-  document.getElementById("modal").classList.remove("active");
-  document.getElementById("playerArea").innerHTML = "";
-}
+function showHistory(){
+  hideAll();
+  document.getElementById("sectionTitle").style.display = "none";
 
-function closeModal(event) {
-  if (event.target.id === "modal") {
-    closePlayer();
+  const box = document.getElementById("historyBox");
+  box.classList.add("active");
+
+  const history = getHistory();
+
+  if(history.length === 0){
+    box.innerHTML = "<h2>検索履歴はまだありません</h2>";
+    return;
   }
+
+  box.innerHTML = "<h2>検索履歴</h2>";
+
+  history.forEach(word => {
+    const div = document.createElement("div");
+    div.className = "historyItem";
+    div.textContent = word;
+    div.onclick = () => {
+      document.getElementById("searchInput").value = word;
+      searchVideos();
+    };
+    box.appendChild(div);
+  });
+}
+
+function clearHistory(){
+  localStorage.removeItem("searchHistory");
+  localStorage.removeItem("watchData");
+  alert("履歴を削除しました");
+  showHome();
+}
+
+function showShorts(){
+  hideAll();
+  document.getElementById("sectionTitle").style.display = "none";
+
+  const shortsView = document.getElementById("shortsView");
+  shortsView.classList.add("active");
+  shortsView.innerHTML = "";
+
+  if(shorts.length === 0){
+    fetchVideos("shorts 人気").then(() => showShorts());
+    return;
+  }
+
+  shorts.forEach(video => {
+    const item = document.createElement("div");
+    item.className = "shortItem";
+
+    item.innerHTML = `
+      <div class="shortBox">
+        <iframe
+          src="https://www.youtube.com/embed/${video.videoId}?rel=0&playsinline=1"
+          title="YouTube Shorts player"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen>
+        </iframe>
+      </div>
+    `;
+
+    shortsView.appendChild(item);
+  });
 }
 
 document.getElementById("searchInput").addEventListener("keydown", e => {
-  if (e.key === "Enter") searchVideos();
+  if(e.key === "Enter") searchVideos();
 });
 </script>
 
